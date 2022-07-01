@@ -1,0 +1,27 @@
+
+Current status of development
+-----------------------------
+
+1) RISC5 simulator
+   sim				done
+
+2) RISC5 C compiler
+   lcc				started
+
+3) RISC5 hardware
+   fpga				not yet
+
+4) RISC5 documentation
+   doc				not yet
+
+5) RISC5 binutils
+   asm				not yet
+   dump				not yet
+   link				not yet
+   load				not yet
+   mklib			not yet
+
+6) RISC5 tools
+   bin2mem			done
+   mem2bin			done
+
