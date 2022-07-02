@@ -15,6 +15,7 @@ Current status of development
    doc				not yet
 
 5) RISC5 binutils
+   include			done
    asm				not yet
    dump				not yet
    link				not yet
