@@ -4,7 +4,7 @@
 
 BUILD = ../build
 
-DIRS = bin2mem mem2bin
+DIRS = bin2mem cmpx mem2bin
 
 .PHONY:		all install clean
 
