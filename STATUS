@@ -24,5 +24,6 @@ Current status of development
 
 6) RISC5 tools
    bin2mem			done
+   cmpx				done
    mem2bin			done
 
