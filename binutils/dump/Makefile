@@ -1,10 +1,34 @@
 #
-# Makefile
+# Makefile for RISC5 object file dumper
 #
 
-all:
+BUILD = ../../build
 
-install:
+CC = gcc
+CFLAGS = -g -Wall
+LDFLAGS = -g
+LDLIBS = -lm
+
+SRCS = dump.c
+OBJS = $(patsubst %.c,%.o,$(SRCS))
+BIN = dump
+
+all:		$(BIN)
+
+install:	$(BIN)
+		mkdir -p $(BUILD)/bin
+		cp $(BIN) $(BUILD)/bin
+
+$(BIN):		$(OBJS)
+		$(CC) $(LDFLAGS) -o $(BIN) $(OBJS) $(LDLIBS)
+
+%.o:		%.c
+		$(CC) $(CFLAGS) -o $@ -c $<
+
+depend.mak:
+		$(CC) -MM -MG $(CFLAGS) $(SRCS) >depend.mak
+
+-include depend.mak
 
 clean:
-		rm -f *~
+		rm -f *~ $(OBJS) $(BIN) depend.mak
