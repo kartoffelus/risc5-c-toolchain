@@ -9,13 +9,22 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+#include "../include/exec.h"
+
 
 /**************************************************************/
 
 /* constant definitions */
 
 
+#define DFLT_OUT_NAME	"a.out"
+
 #define LINE_SIZE	200
+
+
+/**************************************************************/
+
+/* tokens */
 
 
 #define TOK_EOL		0
@@ -25,6 +34,24 @@
 #define TOK_NUMBER	4
 #define TOK_REGISTER	5
 #define TOK_COMMA	6
+#define TOK_LPAREN	7
+#define TOK_RPAREN	8
+#define TOK_PLUS	9
+#define TOK_MINUS	10
+#define TOK_TILDE	11
+#define TOK_STAR	12
+#define TOK_SLASH	13
+#define TOK_PERCENT	14
+#define TOK_LSHIFT	15
+#define TOK_RSHIFT	16
+#define TOK_AMPER	17
+#define TOK_CARET	18
+#define TOK_BAR		19
+
+
+/**************************************************************/
+
+/* opcodes */
 
 
 #define OP_MOV		0x00000000
@@ -98,14 +125,6 @@
 #define OP_STI		0xCF000021
 
 
-#define FIXUP_ILLEGAL	0
-#define FIXUP_IMMEDIATE	1
-#define FIXUP_TARGET	2
-#define FIXUP_OFFSET	3
-#define FIXUP_WORD	4
-#define FIXUP_BYTE	5
-
-
 /**************************************************************/
 
 /* type definitions */
@@ -114,22 +133,23 @@
 typedef enum { false, true } Bool;
 
 
+#define STAT_DEFINED	0x01	/* set iff symbol is defined */
+#define STAT_GLOBAL	0x02	/* set iff symbol is global */
+
+#define SEG_ABS		-1	/* absolute values */
+#define SEG_CODE	0	/* code segment */
+#define SEG_DATA	1	/* initialized data segment */
+#define SEG_BSS		2	/* uninitialized data segment */
+
+
 typedef struct symbol {
   char *name;			/* name of symbol */
-  Bool isDefined;		/* is the symbol defined? */
-  unsigned int value;		/* the symbol's value, if defined */
+  int status;			/* status of symbol */
+  int segment;			/* the symbol's segment, -1: absolute */
+  int value;			/* the symbol's value */
   struct symbol *left;		/* left son in binary search tree */
   struct symbol *right;		/* right son in binary search tree */
 } Symbol;
-
-
-typedef struct fixup {
-  unsigned int codeOffset;	/* at which code offset */
-  Symbol *symbol;		/* where to get the value from */
-  int fixupMethod;		/* what fixup method to use */
-  unsigned int locus;		/* address of instruction to be patched */
-  struct fixup *next;		/* next fixup in list */
-} Fixup;
 
 
 /**************************************************************/
@@ -138,7 +158,8 @@ typedef struct fixup {
 
 
 Bool debugToken = false;
-Bool debugFixup = false;
+Bool debugEmit = true;
+Bool debugFixup = true;
 
 FILE *inFile;
 FILE *outFile;
@@ -151,11 +172,10 @@ int token;
 char tokenvalString[LINE_SIZE];
 int tokenvalNumber;
 
-unsigned int currAddr = 0;
+int currSeg = SEG_CODE;
+unsigned int segPtr[3] = { 0, 0, 0 };
 
 Symbol *symbolTable = NULL;
-
-Fixup *fixupList = NULL;
 
 
 /**************************************************************/
@@ -175,7 +195,7 @@ void error(char *fmt, ...) {
 }
 
 
-void *allocMem(unsigned int size) {
+void *memAlloc(unsigned int size) {
   void *p;
 
   p = malloc(size);
@@ -186,96 +206,89 @@ void *allocMem(unsigned int size) {
 }
 
 
-void freeMem(void *p) {
+void memFree(void *p) {
+  if (p == NULL) {
+    error("memFree() got NULL pointer");
+  }
   free(p);
 }
 
 
 /**************************************************************/
 
-/* code emitter */
+/* endianness conversion */
 
 
-#define MAX_CODE_INIT		256
-#define MAX_CODE_MULT		4
-
-
-unsigned char *codeArray = NULL;	/* the code proper */
-unsigned int codeSize = 0;		/* the current code size */
-
-unsigned int codeMaxSize = 0;		/* the code array's current size */
-
-
-void growCodeArray(void) {
-  unsigned int newMaxSize;
-  unsigned char *newCodeArray;
-  unsigned int i;
-
-  if (codeMaxSize == 0) {
-    /* first allocation */
-    newMaxSize = MAX_CODE_INIT;
-  } else {
-    /* subsequent allocation */
-    newMaxSize = codeMaxSize * MAX_CODE_MULT;
-  }
-  newCodeArray = allocMem(newMaxSize);
-  for (i = 0; i < codeSize; i++) {
-    newCodeArray[i] = codeArray[i];
-  }
-  if (codeArray != NULL) {
-    freeMem(codeArray);
-  }
-  codeArray = newCodeArray;
-  codeMaxSize = newMaxSize;
+unsigned int read4FromTarget(unsigned char *p) {
+  return (unsigned int) p[0] <<  0 |
+         (unsigned int) p[1] <<  8 |
+         (unsigned int) p[2] << 16 |
+         (unsigned int) p[3] << 24;
 }
 
 
-void emitWord(unsigned int data) {
-  if (codeSize + 4 > codeMaxSize) {
-    growCodeArray();
-  }
-  *(unsigned int *)(codeArray + codeSize) = data;
-  codeSize += 4;
-  currAddr += 4;
+void write4ToTarget(unsigned char *p, unsigned int data) {
+  p[0] = data >>  0;
+  p[1] = data >>  8;
+  p[2] = data >> 16;
+  p[3] = data >> 24;
 }
 
 
-void emitByte(unsigned char data) {
-  if (codeSize + 1 > codeMaxSize) {
-    growCodeArray();
-  }
-  *(unsigned char *)(codeArray + codeSize) = data;
-  codeSize++;
-  currAddr++;
-}
-
-
-unsigned int getWord(unsigned int offset) {
-  return *(unsigned int *)(codeArray + offset);
-}
-
-
-void putWord(unsigned int offset, unsigned int data) {
-  *(unsigned int *)(codeArray + offset) = data;
-}
-
-
-void putByte(unsigned int offset, unsigned char data) {
-  *(unsigned char *)(codeArray + offset) = data;
-}
-
-
-void writeCode(void) {
+void conv4FromTargetToNative(unsigned char *p) {
   unsigned int data;
-  unsigned int i;
 
-  while (currAddr & 3) {
-    emitByte(0);
+  data = read4FromTarget(p);
+  * (unsigned int *) p = data;
+}
+
+
+void conv4FromNativeToTarget(unsigned char *p) {
+  unsigned int data;
+
+  data = * (unsigned int *) p;
+  write4ToTarget(p, data);
+}
+
+
+/**************************************************************/
+
+/* other helper functions */
+
+
+char *segName(int segment) {
+  char *name;
+
+  switch (segment) {
+    case SEG_ABS:
+      name = "ABS";
+      break;
+    case SEG_CODE:
+      name = "CODE";
+      break;
+    case SEG_DATA:
+      name = "DATA";
+      break;
+    case SEG_BSS:
+      name = "BSS";
+      break;
+    default:
+      name = "<unknown>";
+      break;
   }
-  for (i = 0; i < codeSize; i += 4) {
-    data = *(unsigned int *)(codeArray + i);
-    fprintf(outFile, "%08X\n", data);
+  return name;
+}
+
+
+char *methodName(int method) {
+  char *name;
+
+  switch (method) {
+    default:
+      name = "<unknown>";
+      break;
   }
+  return name;
 }
 
 
@@ -287,10 +300,11 @@ void writeCode(void) {
 Symbol *newSymbol(char *name) {
   Symbol *p;
 
-  p = allocMem(sizeof(Symbol));
-  p->name = allocMem(strlen(name) + 1);
+  p = memAlloc(sizeof(Symbol));
+  p->name = memAlloc(strlen(name) + 1);
   strcpy(p->name, name);
-  p->isDefined = false;
+  p->status = 0;
+  p->segment = SEG_ABS;
   p->value = 0;
   p->left = NULL;
   p->right = NULL;
@@ -340,101 +354,21 @@ Symbol *lookupEnter(char *name) {
 
 /**************************************************************/
 
-/* backpatching */
+/* handle fixups */
 
 
-void addFixup(unsigned int codeOffset, Symbol *symbol,
-              int fixupMethod, unsigned int locus) {
-  Fixup *fixup;
-
-  fixup = allocMem(sizeof(Fixup));
-  fixup->codeOffset = codeOffset;
-  fixup->symbol = symbol;
-  fixup->fixupMethod = fixupMethod;
-  fixup->locus = locus;
-  fixup->next = fixupList;
-  fixupList = fixup;
-}
-
-
-void fixupSingle(unsigned int codeOffset, Symbol *symbol,
-                 int fixupMethod, unsigned int locus) {
-  unsigned int value;
-  unsigned int mask;
-  unsigned int instr;
-  unsigned int imm;
-  int target;
-  int offset;
+void addFixup(Symbol *s,
+              int segment, unsigned int offset,
+              int method, int value) {
+  //Fixup *f;
 
   if (debugFixup) {
-    printf("FIXUP: code offset 0x%08X, symbol name '%s',\n"
-           "       fixup method %d, locus 0x%08X\n",
-           codeOffset, symbol->name, fixupMethod, locus);
+    printf("DEBUG: fixup (s:%s, o:%08X, m:%s, v:%08X) added to '%s'\n",
+           segName(segment), offset, methodName(method), value, s->name);
   }
-  if (!symbol->isDefined) {
-    error("undefined symbol '%s'", symbol->name);
-  }
-  value = symbol->value;
-  switch (fixupMethod) {
-    case FIXUP_IMMEDIATE:
-      imm = value;
-      instr = getWord(codeOffset);
-      if ((imm >> 16) == 0x0000) {
-        instr &= ~(1 << 28);
-      } else
-      if ((imm >> 16) == 0xFFFF) {
-        instr |= (1 << 28);
-      } else {
-        error("illegal immediate value 0x%08X", imm);
-      }
-      mask = 0x0000FFFF;
-      instr &= ~mask;
-      instr |= (imm & mask);
-      putWord(codeOffset, instr);
-      break;
-    case FIXUP_TARGET:
-      target = value;
-      /* target is never out of reach */
-      offset = (target - locus - 4) / 4;
-      mask = 0x003FFFFF;
-      instr = getWord(codeOffset);
-      instr &= ~mask;
-      instr |= (offset & mask);
-      putWord(codeOffset, instr);
-      break;
-    case FIXUP_OFFSET:
-      offset = value;
-      if (offset < -(1 << 19) || offset >= (1 << 19)) {
-        error("offset %d out of bounds, symbol '%s'", offset, symbol->name);
-      }
-      mask = 0x000FFFFF;
-      instr = getWord(codeOffset);
-      instr &= ~mask;
-      instr |= (offset & mask);
-      putWord(codeOffset, instr);
-      break;
-    case FIXUP_WORD:
-      putWord(codeOffset, value);
-      break;
-    case FIXUP_BYTE:
-      putByte(codeOffset, value & 0x000000FF);
-      break;
-    default:
-      error("illegal fixup method %d", fixupMethod);
-      break;
-  }
-}
-
-
-void fixupAll(void) {
-  Fixup *fixup;
-
-  fixup = fixupList;
-  while (fixup != NULL) {
-    fixupSingle(fixup->codeOffset, fixup->symbol,
-                fixup->fixupMethod, fixup->locus);
-    fixup = fixup->next;
-  }
+  //f = newFixup(segment, offset, method, value);
+  //f->next = s->fixups;
+  //s->fixups = f;
 }
 
 
@@ -471,7 +405,6 @@ int getNextToken(void) {
   char *p;
   int base;
   int digit;
-  Bool negate;
 
   while (*lineptr == ' ' || *lineptr == '\t') {
     lineptr++;
@@ -497,15 +430,7 @@ int getNextToken(void) {
       }
     }
   }
-  if (isdigit((int) *lineptr) || *lineptr == '+' || *lineptr == '-') {
-    negate = false;
-    if (*lineptr == '+') {
-      lineptr++;
-    } else
-    if (*lineptr == '-') {
-      negate = true;
-      lineptr++;
-    }
+  if (isdigit((int) *lineptr)) {
     base = 10;
     tokenvalNumber = 0;
     if (*lineptr == '0') {
@@ -517,9 +442,6 @@ int getNextToken(void) {
       if (isdigit((int) *lineptr)) {
         base = 8;
       } else {
-        if (negate) {
-          tokenvalNumber = -tokenvalNumber;
-        }
         return TOK_NUMBER;
       }
     }
@@ -537,9 +459,6 @@ int getNextToken(void) {
       }
       tokenvalNumber *= base;
       tokenvalNumber += digit;
-    }
-    if (negate) {
-      tokenvalNumber = -tokenvalNumber;
     }
     return TOK_NUMBER;
   }
@@ -576,10 +495,51 @@ int getNextToken(void) {
     *p = '\0';
     return TOK_STRING;
   }
+  if (*lineptr == '<' && *(lineptr + 1) == '<') {
+    lineptr += 2;
+    return TOK_LSHIFT;
+  }
+  if (*lineptr == '>' && *(lineptr + 1) == '>') {
+    lineptr += 2;
+    return TOK_RSHIFT;
+  }
   switch (*lineptr) {
     case ',':
       lineptr++;
       return TOK_COMMA;
+    case '(':
+      lineptr++;
+      return TOK_LPAREN;
+    case ')':
+      lineptr++;
+      return TOK_RPAREN;
+    case '+':
+      lineptr++;
+      return TOK_PLUS;
+    case '-':
+      lineptr++;
+      return TOK_MINUS;
+    case '~':
+      lineptr++;
+      return TOK_TILDE;
+    case '*':
+      lineptr++;
+      return TOK_STAR;
+    case '/':
+      lineptr++;
+      return TOK_SLASH;
+    case '%':
+      lineptr++;
+      return TOK_PERCENT;
+    case '&':
+      lineptr++;
+      return TOK_AMPER;
+    case '^':
+      lineptr++;
+      return TOK_CARET;
+    case '|':
+      lineptr++;
+      return TOK_BAR;
   }
   /* no match */
   error("illegal character 0x%02X in line %d", *lineptr, lineno);
@@ -589,7 +549,7 @@ int getNextToken(void) {
 
 
 void showToken(void) {
-  printf("DEBUG: ");
+  printf("DEBUG: line = %d, ", lineno);
   switch (token) {
     case TOK_EOL:
       printf("token = TOK_EOL\n");
@@ -612,6 +572,45 @@ void showToken(void) {
     case TOK_COMMA:
       printf("token = TOK_COMMA\n");
       break;
+    case TOK_LPAREN:
+      printf("token = TOK_LPAREN\n");
+      break;
+    case TOK_RPAREN:
+      printf("token = TOK_RPAREN\n");
+      break;
+    case TOK_PLUS:
+      printf("token = TOK_PLUS\n");
+      break;
+    case TOK_MINUS:
+      printf("token = TOK_MINUS\n");
+      break;
+    case TOK_TILDE:
+      printf("token = TOK_TILDE\n");
+      break;
+    case TOK_STAR:
+      printf("token = TOK_STAR\n");
+      break;
+    case TOK_SLASH:
+      printf("token = TOK_SLASH\n");
+      break;
+    case TOK_PERCENT:
+      printf("token = TOK_PERCENT\n");
+      break;
+    case TOK_LSHIFT:
+      printf("token = TOK_LSHIFT\n");
+      break;
+    case TOK_RSHIFT:
+      printf("token = TOK_RSHIFT\n");
+      break;
+    case TOK_AMPER:
+      printf("token = TOK_AMPER\n");
+      break;
+    case TOK_CARET:
+      printf("token = TOK_CARET\n");
+      break;
+    case TOK_BAR:
+      printf("token = TOK_BAR\n");
+      break;
     default:
       error("illegal token %d in showToken()", token);
   }
@@ -626,38 +625,470 @@ void getToken(void) {
 }
 
 
+char *tok2str[] = {
+  "end-of-line",
+  "label",
+  "identifier",
+  "string",
+  "number",
+  "register",
+  ",",
+  "(",
+  ")",
+  "+",
+  "-",
+  "~",
+  "*",
+  "/",
+  "%",
+  "<<",
+  ">>",
+  "&",
+  "^",
+  "|",
+};
+
+
+void expect(int expected) {
+  if (token != expected) {
+    error("%s expected, got %s in line %d",
+          tok2str[expected], tok2str[token], lineno);
+  }
+}
+
+
 /**************************************************************/
 
-/* get value, either as constant or from symbol table */
+/* code array management */
 
 
-unsigned int getValue(int fixupMethod) {
-  unsigned int value;
-  Symbol *symbol;
+#define MAX_CODE_INIT		256
+#define MAX_CODE_MULT		4
+
+
+unsigned char *codeArray = NULL;	/* the code proper */
+unsigned int codeSize = 0;		/* the current code size */
+unsigned int codeMaxSize = 0;		/* the code array's current size */
+
+
+void growCodeArray(void) {
+  unsigned int newMaxSize;
+  unsigned char *newCodeArray;
+  unsigned int i;
+
+  if (codeMaxSize == 0) {
+    /* first allocation */
+    newMaxSize = MAX_CODE_INIT;
+  } else {
+    /* subsequent allocation */
+    newMaxSize = codeMaxSize * MAX_CODE_MULT;
+  }
+  newCodeArray = memAlloc(newMaxSize);
+  for (i = 0; i < codeSize; i++) {
+    newCodeArray[i] = codeArray[i];
+  }
+  if (codeArray != NULL) {
+    memFree(codeArray);
+  }
+  codeArray = newCodeArray;
+  codeMaxSize = newMaxSize;
+}
+
+
+void putCodeWord(unsigned int data) {
+  if (codeSize + 4 > codeMaxSize) {
+    growCodeArray();
+  }
+  *(unsigned int *)(codeArray + codeSize) = data;
+  codeSize += 4;
+}
+
+
+void putCodeHalf(unsigned short data) {
+  if (codeSize + 2 > codeMaxSize) {
+    growCodeArray();
+  }
+  *(unsigned short *)(codeArray + codeSize) = data;
+  codeSize += 2;
+}
+
+
+void putCodeByte(unsigned char data) {
+  if (codeSize + 1 > codeMaxSize) {
+    growCodeArray();
+  }
+  *(unsigned char *)(codeArray + codeSize) = data;
+  codeSize += 1;
+}
+
+
+/**************************************************************/
+
+/* data array management */
+
+
+#define MAX_DATA_INIT		256
+#define MAX_DATA_MULT		4
+
+
+unsigned char *dataArray = NULL;	/* the data proper */
+unsigned int dataSize = 0;		/* the current data size */
+unsigned int dataMaxSize = 0;		/* the data array's current size */
+
+
+void growDataArray(void) {
+  unsigned int newMaxSize;
+  unsigned char *newDataArray;
+  unsigned int i;
+
+  if (dataMaxSize == 0) {
+    /* first allocation */
+    newMaxSize = MAX_DATA_INIT;
+  } else {
+    /* subsequent allocation */
+    newMaxSize = dataMaxSize * MAX_DATA_MULT;
+  }
+  newDataArray = memAlloc(newMaxSize);
+  for (i = 0; i < dataSize; i++) {
+    newDataArray[i] = dataArray[i];
+  }
+  if (dataArray != NULL) {
+    memFree(dataArray);
+  }
+  dataArray = newDataArray;
+  dataMaxSize = newMaxSize;
+}
+
+
+void putDataWord(unsigned int data) {
+  if (dataSize + 4 > dataMaxSize) {
+    growDataArray();
+  }
+  *(unsigned int *)(dataArray + dataSize) = data;
+  dataSize += 4;
+}
+
+
+void putDataHalf(unsigned short data) {
+  if (dataSize + 2 > dataMaxSize) {
+    growDataArray();
+  }
+  *(unsigned short *)(dataArray + dataSize) = data;
+  dataSize += 2;
+}
+
+
+void putDataByte(unsigned char data) {
+  if (dataSize + 1 > dataMaxSize) {
+    growDataArray();
+  }
+  *(unsigned char *)(dataArray + dataSize) = data;
+  dataSize += 1;
+}
+
+
+/**************************************************************/
+
+/* code and data emitter */
+
+
+void emitWord(unsigned int word) {
+  if (debugEmit) {
+    printf("DEBUG: word @ segment = %s, offset = %08X",
+           segName(currSeg), segPtr[currSeg]);
+    printf(", value = %02X%02X%02X%02X\n",
+           (word >> 24) & 0xFF, (word >> 16) & 0xFF,
+           (word >> 8) & 0xFF, word & 0xFF);
+  }
+  switch (currSeg) {
+    case SEG_ABS:
+      error("illegal segment in emitWord()");
+      break;
+    case SEG_CODE:
+      putCodeWord(word);
+      break;
+    case SEG_DATA:
+      putDataWord(word);
+      break;
+    case SEG_BSS:
+      break;
+  }
+  segPtr[currSeg] += 4;
+}
+
+
+void emitHalf(unsigned int half) {
+  half &= 0x0000FFFF;
+  if (debugEmit) {
+    printf("DEBUG: half @ segment = %s, offset = %08X",
+           segName(currSeg), segPtr[currSeg]);
+    printf(", value = %02X%02X\n",
+           (half >> 8) & 0xFF, half & 0xFF);
+  }
+  switch (currSeg) {
+    case SEG_ABS:
+      error("illegal segment in emitHalf()");
+      break;
+    case SEG_CODE:
+      putCodeHalf(half);
+      break;
+    case SEG_DATA:
+      putDataHalf(half);
+      break;
+    case SEG_BSS:
+      break;
+  }
+  segPtr[currSeg] += 2;
+}
+
+
+void emitByte(unsigned int byte) {
+  byte &= 0x000000FF;
+  if (debugEmit) {
+    printf("DEBUG: byte @ segment = %s, offset = %08X",
+           segName(currSeg), segPtr[currSeg]);
+    printf(", value = %02X\n", byte);
+  }
+  switch (currSeg) {
+    case SEG_ABS:
+      error("illegal segment in emitByte()");
+      break;
+    case SEG_CODE:
+      putCodeByte(byte);
+      break;
+    case SEG_DATA:
+      putDataByte(byte);
+      break;
+    case SEG_BSS:
+      break;
+  }
+  segPtr[currSeg] += 1;
+}
+
+
+/**************************************************************/
+
+/* expression parser */
+
+
+typedef struct {
+  int con;
+  Symbol *sym;
+} Value;
+
+
+Value parseExpression(void);
+
+
+Value parsePrimaryExpression(void) {
+  Value v;
+  Symbol *s;
 
   if (token == TOK_NUMBER) {
-    value = tokenvalNumber;
+    v.con = tokenvalNumber;
+    v.sym = NULL;
     getToken();
   } else
   if (token == TOK_IDENT) {
-    symbol = lookupEnter(tokenvalString);
-    if (symbol->isDefined) {
-      value = symbol->value;
+    s = lookupEnter(tokenvalString);
+    if ((s->status & STAT_DEFINED) != 0 && s->segment == SEG_ABS) {
+      v.con = s->value;
+      v.sym = NULL;
     } else {
-      if (fixupMethod == FIXUP_ILLEGAL) {
-        error("undefined symbol '%s' (cannot be fixed up later) in line %d",
-              symbol->name, lineno);
-      }
-      addFixup(codeSize, symbol, fixupMethod, currAddr);
-      value = 0;
+      v.con = 0;
+      v.sym = s;
     }
     getToken();
+  } else
+  if (token == TOK_LPAREN) {
+    getToken();
+    v = parseExpression();
+    expect(TOK_RPAREN);
+    getToken();
   } else {
-    error("value missing in line %d", lineno);
-    /* never reached */
-    value = 0;
+    error("illegal primary expression, line %d", lineno);
   }
-  return value;
+  return v;
+}
+
+
+Value parseUnaryExpression(void) {
+  Value v;
+
+  if (token == TOK_PLUS) {
+    getToken();
+    v = parseUnaryExpression();
+  } else
+  if (token == TOK_MINUS) {
+    getToken();
+    v = parseUnaryExpression();
+    if (v.sym != NULL) {
+      error("cannot negate symbol '%s' in line %d", v.sym->name, lineno);
+    }
+    v.con = -v.con;
+  } else
+  if (token == TOK_TILDE) {
+    getToken();
+    v = parseUnaryExpression();
+    if (v.sym != NULL) {
+      error("cannot complement symbol '%s' in line %d", v.sym->name, lineno);
+    }
+    v.con = ~v.con;
+  } else {
+    v = parsePrimaryExpression();
+  }
+  return v;
+}
+
+
+Value parseMultiplicativeExpression(void) {
+  Value v1, v2;
+
+  v1 = parseUnaryExpression();
+  while (token == TOK_STAR || token == TOK_SLASH || token == TOK_PERCENT) {
+    if (token == TOK_STAR) {
+      getToken();
+      v2 = parseUnaryExpression();
+      if (v1.sym != NULL || v2.sym != NULL) {
+        error("multiplication of symbols not supported, line %d", lineno);
+      }
+      v1.con *= v2.con;
+    } else
+    if (token == TOK_SLASH) {
+      getToken();
+      v2 = parseUnaryExpression();
+      if (v1.sym != NULL || v2.sym != NULL) {
+        error("division of symbols not supported, line %d", lineno);
+      }
+      if (v2.con == 0) {
+        error("division by zero, line %d", lineno);
+      }
+      v1.con /= v2.con;
+    } else
+    if (token == TOK_PERCENT) {
+      getToken();
+      v2 = parseUnaryExpression();
+      if (v1.sym != NULL || v2.sym != NULL) {
+        error("division of symbols not supported, line %d", lineno);
+      }
+      if (v2.con == 0) {
+        error("division by zero, line %d", lineno);
+      }
+      v1.con %= v2.con;
+    }
+  }
+  return v1;
+}
+
+
+Value parseAdditiveExpression(void) {
+  Value v1, v2;
+
+  v1 = parseMultiplicativeExpression();
+  while (token == TOK_PLUS || token == TOK_MINUS) {
+    if (token == TOK_PLUS) {
+      getToken();
+      v2 = parseMultiplicativeExpression();
+      if (v1.sym != NULL && v2.sym != NULL) {
+        error("addition of symbols not supported, line %d", lineno);
+      }
+      if (v2.sym != NULL) {
+        v1.sym = v2.sym;
+      }
+      v1.con += v2.con;
+    } else
+    if (token == TOK_MINUS) {
+      getToken();
+      v2 = parseMultiplicativeExpression();
+      if (v2.sym != NULL) {
+        error("subtraction of symbols not supported, line %d", lineno);
+      }
+      v1.con -= v2.con;
+    }
+  }
+  return v1;
+}
+
+
+Value parseShiftExpression(void) {
+  Value v1, v2;
+
+  v1 = parseAdditiveExpression();
+  while (token == TOK_LSHIFT || token == TOK_RSHIFT) {
+    if (token == TOK_LSHIFT) {
+      getToken();
+      v2 = parseAdditiveExpression();
+      if (v1.sym != NULL || v2.sym != NULL) {
+        error("shifting of symbols not supported, line %d", lineno);
+      }
+      v1.con <<= v2.con;
+    } else
+    if (token == TOK_RSHIFT) {
+      getToken();
+      v2 = parseAdditiveExpression();
+      if (v1.sym != NULL || v2.sym != NULL) {
+        error("shifting of symbols not supported, line %d", lineno);
+      }
+      v1.con >>= v2.con;
+    }
+  }
+  return v1;
+}
+
+
+Value parseAndExpression(void) {
+  Value v1, v2;
+
+  v1 = parseShiftExpression();
+  while (token == TOK_AMPER) {
+    getToken();
+    v2 = parseShiftExpression();
+    if (v2.sym != NULL) {
+      error("bitwise 'and' of symbols not supported, line %d", lineno);
+    }
+    v1.con &= v2.con;
+  }
+  return v1;
+}
+
+
+Value parseExclusiveOrExpression(void) {
+  Value v1, v2;
+
+  v1 = parseAndExpression();
+  while (token == TOK_CARET) {
+    getToken();
+    v2 = parseAndExpression();
+    if (v2.sym != NULL) {
+      error("bitwise 'xor' of symbols not supported, line %d", lineno);
+    }
+    v1.con ^= v2.con;
+  }
+  return v1;
+}
+
+
+Value parseInclusiveOrExpression(void) {
+  Value v1, v2;
+
+  v1 = parseExclusiveOrExpression();
+  while (token == TOK_BAR) {
+    getToken();
+    v2 = parseExclusiveOrExpression();
+    if (v2.sym != NULL) {
+      error("bitwise 'or' of symbols not supported, line %d", lineno);
+    }
+    v1.con |= v2.con;
+  }
+  return v1;
+}
+
+
+Value parseExpression(void) {
+  Value v;
+
+  v = parseInclusiveOrExpression();
+  return v;
 }
 
 
@@ -667,77 +1098,32 @@ unsigned int getValue(int fixupMethod) {
 
 
 /*
- * operands: register, register
+ * operands: register, register or immediate
  */
-void format_6(unsigned int code) {
-  int reg1;
-  int reg2;
+void format_0(unsigned int code) {
+  error("format_0() not implemented yet");
+}
 
-  if (token != TOK_REGISTER) {
-    error("missing register in line %d", lineno);
-  }
-  reg1 = tokenvalNumber;
-  getToken();
-  if (token != TOK_COMMA) {
-    error("comma expected in line %d", lineno);
-  }
-  getToken();
-  if (token != TOK_REGISTER) {
-    error("missing second register in line %d", lineno);
-  }
-  reg2 = tokenvalNumber;
-  getToken();
-  emitWord(code | (reg1 << 24) | (reg2 << 20));
+
+/*
+ * operands: register, immediate
+ * ATTENTION: high-order 16 bits encoded in instruction
+ */
+void format_1(unsigned int code) {
+  error("format_1() not implemented yet");
 }
 
 
 /*
  * operand: register
  */
-void format_5(unsigned int code) {
+void format_2(unsigned int code) {
   int reg;
 
-  if (token != TOK_REGISTER) {
-    error("missing register in line %d", lineno);
-  }
+  expect(TOK_REGISTER);
   reg = tokenvalNumber;
   getToken();
   emitWord(code | (reg << 24));
-}
-
-
-/*
- * operands: register, register or immediate
- */
-void format_4(unsigned int code) {
-  int reg1;
-  int reg2;
-  unsigned int imm;
-
-  if (token != TOK_REGISTER) {
-    error("missing register in line %d", lineno);
-  }
-  reg1 = tokenvalNumber;
-  getToken();
-  if (token != TOK_COMMA) {
-    error("comma expected in line %d", lineno);
-  }
-  getToken();
-  if (token == TOK_REGISTER) {
-    reg2 = tokenvalNumber;
-    getToken();
-    emitWord(code | (reg1 << 24) | reg2);
-  } else {
-    imm = getValue(FIXUP_IMMEDIATE);
-    if ((imm >> 16) == 0x0000) {
-      emitWord(code | (4 << 28) | (reg1 << 24) | (imm & 0x0000FFFF));
-    } else
-    if ((imm >> 16) == 0xFFFF) {
-      emitWord(code | (5 << 28) | (reg1 << 24) | (imm & 0x0000FFFF));
-    } else {
-      error("illegal immediate value in line %d", lineno);
-    }
-  }
 }
 
 
@@ -748,31 +1134,24 @@ void format_3(unsigned int code) {
   int reg1;
   int reg2;
   int reg3;
-  unsigned int imm;
 
-  if (token != TOK_REGISTER) {
-    error("missing register in line %d", lineno);
-  }
+  expect(TOK_REGISTER);
   reg1 = tokenvalNumber;
   getToken();
-  if (token != TOK_COMMA) {
-    error("comma expected in line %d", lineno);
-  }
+  expect(TOK_COMMA);
   getToken();
-  if (token != TOK_REGISTER) {
-    error("missing second register in line %d", lineno);
-  }
+  expect(TOK_REGISTER);
   reg2 = tokenvalNumber;
   getToken();
-  if (token != TOK_COMMA) {
-    error("comma expected in line %d", lineno);
-  }
+  expect(TOK_COMMA);
   getToken();
   if (token == TOK_REGISTER) {
     reg3 = tokenvalNumber;
     getToken();
     emitWord(code | (reg1 << 24) | (reg2 << 20) | reg3);
   } else {
+#if 0
+    v = parseExpression();
     imm = getValue(FIXUP_IMMEDIATE);
     if ((imm >> 16) == 0x0000) {
       emitWord(code | (4 << 28) | (reg1 << 24) |
@@ -784,69 +1163,50 @@ void format_3(unsigned int code) {
     } else {
       error("illegal immediate value in line %d", lineno);
     }
+#endif
   }
 }
 
 
 /*
- * operand: register or target address
+ * operands: register, register
  */
-void format_2(unsigned int code) {
-  int reg;
-  int target;
-  int offset;
+void format_4(unsigned int code) {
+  int reg1;
+  int reg2;
 
-  if (token == TOK_REGISTER) {
-    reg = tokenvalNumber;
-    getToken();
-    emitWord(code | reg);
-  } else {
-    target = getValue(FIXUP_TARGET);
-    /* target is never out of reach */
-    offset = (target - currAddr - 4) / 4;
-    emitWord(code | (1 << 29) | (offset & 0x003FFFFF));
-  }
+  expect(TOK_REGISTER);
+  reg1 = tokenvalNumber;
+  getToken();
+  expect(TOK_COMMA);
+  getToken();
+  expect(TOK_REGISTER);
+  reg2 = tokenvalNumber;
+  getToken();
+  emitWord(code | (reg1 << 24) | (reg2 << 20));
 }
 
 
 /*
  * operands: register, register, offset
  */
-void format_1(unsigned int code) {
-  int reg1;
-  int reg2;
-  int offset;
+void format_5(unsigned int code) {
+  error("format_5() not implemented yet");
+}
 
-  if (token != TOK_REGISTER) {
-    error("missing register in line %d", lineno);
-  }
-  reg1 = tokenvalNumber;
-  getToken();
-  if (token != TOK_COMMA) {
-    error("comma expected in line %d", lineno);
-  }
-  getToken();
-  if (token != TOK_REGISTER) {
-    error("missing second register in line %d", lineno);
-  }
-  reg2 = tokenvalNumber;
-  getToken();
-  if (token != TOK_COMMA) {
-    error("comma expected in line %d", lineno);
-  }
-  getToken();
-  offset = getValue(FIXUP_OFFSET);
-  if (offset < -(1 << 19) || offset >= (1 << 19)) {
-    error("offset out of bounds in line %d", lineno);
-  }
-  emitWord(code | (reg1 << 24) | (reg2 << 20) | (offset & 0x000FFFFF));
+
+/*
+ * operand: register or target address
+ */
+void format_6(unsigned int code) {
+  error("format_6() not implemented yet");
 }
 
 
 /*
  * operands: none
  */
-void format_0(unsigned int code) {
+void format_7(unsigned int code) {
   emitWord(code);
 }
 
@@ -856,12 +1216,58 @@ void format_0(unsigned int code) {
 /* assemblers for the directives */
 
 
-void dotWord(unsigned int code) {
-  unsigned int val;
+int countBits(unsigned int x) {
+  int n;
+
+  n = 0;
+  while (x != 0) {
+    x &= x - 1;
+    n++;
+  }
+  return n;
+}
+
+
+/*
+ * .CODE
+ * set the current segment to code
+ */
+void dotCode(unsigned int code) {
+  currSeg = SEG_CODE;
+}
+
+
+/*
+ * .DATA
+ * set the current segment to data
+ */
+void dotData(unsigned int code) {
+  currSeg = SEG_DATA;
+}
+
+
+/*
+ * .BSS
+ * set the current segment to bss
+ */
+void dotBss(unsigned int code) {
+  currSeg = SEG_BSS;
+}
+
+
+/*
+ * .GLOBAL <comma-separated list of names>
+ * make the names globally accessible
+ * works in both directions (import and export)
+ */
+void dotGlobal(unsigned int code) {
+  Symbol *symbol;
 
   while (1) {
-    val = getValue(FIXUP_WORD);
-    emitWord(val);
+    expect(TOK_IDENT);
+    symbol = lookupEnter(tokenvalString);
+    symbol->status |= STAT_GLOBAL;
+    getToken();
     if (token != TOK_COMMA) {
       break;
     }
@@ -870,9 +1276,115 @@ void dotWord(unsigned int code) {
 }
 
 
+/*
+ * .ALIGN n
+ * align the current address to a multiple of n
+ * by emitting zero-bytes (n must be a power of 2)
+ */
+void dotAlign(unsigned int code) {
+  Value v;
+  unsigned int mask;
+
+  v = parseExpression();
+  if (v.sym != NULL) {
+    error("absolute expression expected in line %d", lineno);
+  }
+  if (countBits(v.con) != 1) {
+    error("argument must be a power of 2 in line %d", lineno);
+  }
+  mask = v.con - 1;
+  while ((segPtr[currSeg] & mask) != 0) {
+    emitByte(0);
+  }
+}
+
+
+/*
+ * .SPACE n
+ * emit n zero-bytes
+ */
+void dotSpace(unsigned int code) {
+  Value v;
+  int i;
+
+  v = parseExpression();
+  if (v.sym != NULL) {
+    error("absolute expression expected in line %d", lineno);
+  }
+  for (i = 0; i < v.con; i++) {
+    emitByte(0);
+  }
+}
+
+
+/*
+ * .LOCATE n
+ * emit zero-bytes until address n is reached
+ */
+void dotLocate(unsigned int code) {
+  Value v;
+
+  v = parseExpression();
+  if (v.sym != NULL) {
+    error("absolute expression expected in line %d", lineno);
+  }
+  while (segPtr[currSeg] != v.con) {
+    emitByte(0);
+  }
+}
+
+
+/*
+ * .WORD <comma-separated list of values>
+ * deposit the 32-bit values in memory
+ */
+void dotWord(unsigned int code) {
+  Value v;
+
+  while (1) {
+    v = parseExpression();
+    if (v.sym == NULL) {
+      emitWord(v.con);
+    } else {
+      addFixup(v.sym, currSeg, segPtr[currSeg], RELOC_W32, v.con);
+      emitWord(0);
+    }
+    if (token != TOK_COMMA) {
+      break;
+    }
+    getToken();
+  }
+}
+
+
+/*
+ * .HALF <comma-separated list of values>
+ * deposit the 16-bit values in memory
+ */
+void dotHalf(unsigned int code) {
+  Value v;
+
+  while (1) {
+    v = parseExpression();
+    if (v.sym != NULL) {
+      error("absolute expression expected in line %d", lineno);
+    }
+    emitHalf(v.con);
+    if (token != TOK_COMMA) {
+      break;
+    }
+    getToken();
+  }
+}
+
+
+/*
+ * .BYTE <comma-separated list of values>
+ * deposit the 8-bit values in memory
+ */
 void dotByte(unsigned int code) {
+  Value v;
   char *p;
-  unsigned int val;
 
   while (1) {
     if (token == TOK_STRING) {
@@ -883,8 +1395,11 @@ void dotByte(unsigned int code) {
       }
       getToken();
     } else {
-      val = getValue(FIXUP_BYTE);
-      emitByte(val);
+      v = parseExpression();
+      if (v.sym != NULL) {
+        error("absolute expression expected in line %d", lineno);
+      }
+      emitByte(v.con);
     }
     if (token != TOK_COMMA) {
       break;
@@ -894,51 +1409,31 @@ void dotByte(unsigned int code) {
 }
 
 
+/*
+ * .SET <name>,<value>
+ * define name to denote the given value
+ */
 void dotSet(unsigned int code) {
+  Value v;
   Symbol *symbol;
-  unsigned int val;
 
-  if (token != TOK_IDENT) {
-    error("identifier missing in line %d", lineno);
-  }
+  expect(TOK_IDENT);
   symbol = lookupEnter(tokenvalString);
-  if (symbol->isDefined) {
+  if ((symbol->status & STAT_DEFINED) != 0) {
     error("symbol '%s' multiply defined in line %d",
           symbol->name, lineno);
   }
   getToken();
-  if (token != TOK_COMMA) {
-    error("comma expected in line %d", lineno);
-  }
+  expect(TOK_COMMA);
   getToken();
-  val = getValue(FIXUP_ILLEGAL);
-  symbol->isDefined = true;
-  symbol->value = val;
-}
-
-
-void dotLoc(unsigned int code) {
-  unsigned int val;
-
-  val = getValue(FIXUP_ILLEGAL);
-  currAddr = val;
-}
-
-
-void dotSpace(unsigned int code) {
-  unsigned int val;
-  unsigned int i;
-
-  val = getValue(FIXUP_ILLEGAL);
-  for (i = 0; i < val; i++) {
-    emitByte(0);
-  }
-}
-
-
-void dotAlign(unsigned int code) {
-  while (currAddr & 3) {
-    emitByte(0);
+  v = parseExpression();
+  if (v.sym == NULL) {
+    symbol->status |= STAT_DEFINED;
+    symbol->segment = SEG_ABS;
+    symbol->value = v.con;
+  } else {
+    error("illegal type of symbol '%s' in expression, line %d",
+          v.sym->name, lineno);
   }
 }
 
@@ -957,86 +1452,91 @@ typedef struct {
 
 Instr instrTable[] = {
   /* register data move */
-  { "MOV",    format_4, OP_MOV	},
-  { "MOVH",   format_4, OP_MOVH	},
-  { "GETH",   format_5, OP_GETH	},
-  { "GETF",   format_5, OP_GETF	},
+  { "MOV",     format_0,  OP_MOV	},
+  { "MOVH",    format_1,  OP_MOVH	},
+  { "GETH",    format_2,  OP_GETH	},
+  { "GETF",    format_2,  OP_GETF	},
   /* shift */
-  { "LSL",    format_3, OP_LSL	},
-  { "ASR",    format_3, OP_ASR	},
-  { "ROR",    format_3, OP_ROR	},
+  { "LSL",     format_3,  OP_LSL	},
+  { "ASR",     format_3,  OP_ASR	},
+  { "ROR",     format_3,  OP_ROR	},
   /* logic */
-  { "AND",    format_3, OP_AND	},
-  { "ANN",    format_3, OP_ANN	},
-  { "IOR",    format_3, OP_IOR	},
-  { "XOR",    format_3, OP_XOR	},
+  { "AND",     format_3,  OP_AND	},
+  { "ANN",     format_3,  OP_ANN	},
+  { "IOR",     format_3,  OP_IOR	},
+  { "XOR",     format_3,  OP_XOR	},
   /* integer arithmetic */
-  { "ADD",    format_3, OP_ADD	},
-  { "ADDC",   format_3, OP_ADDC	},
-  { "SUB",    format_3, OP_SUB	},
-  { "SUBB",   format_3, OP_SUBB	},
-  { "MUL",    format_3, OP_MUL	},
-  { "MULU",   format_3, OP_MULU	},
-  { "DIV",    format_3, OP_DIV	},
-  { "DIVU",   format_3, OP_DIVU	},
+  { "ADD",     format_3,  OP_ADD	},
+  { "ADDC",    format_3,  OP_ADDC	},
+  { "SUB",     format_3,  OP_SUB	},
+  { "SUBB",    format_3,  OP_SUBB	},
+  { "MUL",     format_3,  OP_MUL	},
+  { "MULU",    format_3,  OP_MULU	},
+  { "DIV",     format_3,  OP_DIV	},
+  { "DIVU",    format_3,  OP_DIVU	},
   /* floating-point arithmetic */
-  { "FAD",    format_3, OP_FAD	},
-  { "FSB",    format_3, OP_FSB	},
-  { "FML",    format_3, OP_FML	},
-  { "FDV",    format_3, OP_FDV	},
+  { "FAD",     format_3,  OP_FAD	},
+  { "FSB",     format_3,  OP_FSB	},
+  { "FML",     format_3,  OP_FML	},
+  { "FDV",     format_3,  OP_FDV	},
   /* floating-point conversions */
-  { "FLR",    format_6, OP_FLR	},
-  { "FLT",    format_6, OP_FLT	},
+  { "FLR",     format_4,  OP_FLR	},
+  { "FLT",     format_4,  OP_FLT	},
   /* load/store memory */
-  { "LDW",    format_1, OP_LDW	},
-  { "LDB",    format_1, OP_LDB	},
-  { "STW",    format_1, OP_STW	},
-  { "STB",    format_1, OP_STB	},
+  { "LDW",     format_5,  OP_LDW	},
+  { "LDB",     format_5,  OP_LDB	},
+  { "STW",     format_5,  OP_STW	},
+  { "STB",     format_5,  OP_STB	},
   /* branch */
-  { "BMI",    format_2, OP_BMI	},
-  { "BEQ",    format_2, OP_BEQ	},
-  { "BCS",    format_2, OP_BCS	},
-  { "BVS",    format_2, OP_BVS	},
-  { "BLS",    format_2, OP_BLS	},
-  { "BLT",    format_2, OP_BLT	},
-  { "BLE",    format_2, OP_BLE	},
-  { "B",      format_2, OP_B	},
-  { "BPL",    format_2, OP_BPL	},
-  { "BNE",    format_2, OP_BNE	},
-  { "BCC",    format_2, OP_BCC	},
-  { "BVC",    format_2, OP_BVC	},
-  { "BHI",    format_2, OP_BHI	},
-  { "BGE",    format_2, OP_BGE	},
-  { "BGT",    format_2, OP_BGT	},
-  { "BNVR",   format_2, OP_BNVR	},
+  { "BMI",     format_6,  OP_BMI	},
+  { "BEQ",     format_6,  OP_BEQ	},
+  { "BCS",     format_6,  OP_BCS	},
+  { "BVS",     format_6,  OP_BVS	},
+  { "BLS",     format_6,  OP_BLS	},
+  { "BLT",     format_6,  OP_BLT	},
+  { "BLE",     format_6,  OP_BLE	},
+  { "B",       format_6,  OP_B		},
+  { "BPL",     format_6,  OP_BPL	},
+  { "BNE",     format_6,  OP_BNE	},
+  { "BCC",     format_6,  OP_BCC	},
+  { "BVC",     format_6,  OP_BVC	},
+  { "BHI",     format_6,  OP_BHI	},
+  { "BGE",     format_6,  OP_BGE	},
+  { "BGT",     format_6,  OP_BGT	},
+  { "BNVR",    format_6,  OP_BNVR	},
   /* call */
-  { "CMI",    format_2, OP_CMI	},
-  { "CEQ",    format_2, OP_CEQ	},
-  { "CCS",    format_2, OP_CCS	},
-  { "CVS",    format_2, OP_CVS	},
-  { "CLS",    format_2, OP_CLS	},
-  { "CLT",    format_2, OP_CLT	},
-  { "CLE",    format_2, OP_CLE	},
-  { "C",      format_2, OP_C	},
-  { "CPL",    format_2, OP_CPL	},
-  { "CNE",    format_2, OP_CNE	},
-  { "CCC",    format_2, OP_CCC	},
-  { "CVC",    format_2, OP_CVC	},
-  { "CHI",    format_2, OP_CHI	},
-  { "CGE",    format_2, OP_CGE	},
-  { "CGT",    format_2, OP_CGT	},
-  { "CNVR",   format_2, OP_CNVR	},
+  { "CMI",     format_6,  OP_CMI	},
+  { "CEQ",     format_6,  OP_CEQ	},
+  { "CCS",     format_6,  OP_CCS	},
+  { "CVS",     format_6,  OP_CVS	},
+  { "CLS",     format_6,  OP_CLS	},
+  { "CLT",     format_6,  OP_CLT	},
+  { "CLE",     format_6,  OP_CLE	},
+  { "C",       format_6,  OP_C		},
+  { "CPL",     format_6,  OP_CPL	},
+  { "CNE",     format_6,  OP_CNE	},
+  { "CCC",     format_6,  OP_CCC	},
+  { "CVC",     format_6,  OP_CVC	},
+  { "CHI",     format_6,  OP_CHI	},
+  { "CGE",     format_6,  OP_CGE	},
+  { "CGT",     format_6,  OP_CGT	},
+  { "CNVR",    format_6,  OP_CNVR	},
   /* interrupt control */
-  { "RTI",    format_0, OP_RTI	},
-  { "CLI",    format_0, OP_CLI	},
-  { "STI",    format_0, OP_STI	},
+  { "RTI",     format_7,  OP_RTI	},
+  { "CLI",     format_7,  OP_CLI	},
+  { "STI",     format_7,  OP_STI	},
   /* assembler directives */
-  { ".WORD",  dotWord,  0	},
-  { ".BYTE",  dotByte,  0	},
-  { ".SET",   dotSet,   0	},
-  { ".LOC",   dotLoc,   0	},
-  { ".SPACE", dotSpace, 0	},
-  { ".ALIGN", dotAlign, 0	},
+  { ".CODE",   dotCode,   0		},
+  { ".DATA",   dotData,   0		},
+  { ".BSS",    dotBss,    0		},
+  { ".GLOBAL", dotGlobal, 0		},
+  { ".ALIGN",  dotAlign,  0		},
+  { ".SPACE",  dotSpace,  0		},
+  { ".LOCATE", dotLocate, 0		},
+  { ".WORD",   dotWord,   0		},
+  { ".HALF",   dotHalf,   0		},
+  { ".BYTE",   dotByte,   0		},
+  { ".SET",    dotSet,    0		},
 };
 
 
@@ -1075,13 +1575,14 @@ Instr *lookupInstr(char *name) {
 
 /**************************************************************/
 
-/* assembler for a whole file */
+/* assembler for a whole module */
 
 
-void assemble(void) {
+void asmModule(void) {
   Symbol *label;
   Instr *instr;
 
+  currSeg = SEG_CODE;
   lineno = 0;
   while (fgets(line, LINE_SIZE, inFile) != NULL) {
     lineno++;
@@ -1089,12 +1590,13 @@ void assemble(void) {
     getToken();
     while (token == TOK_LABEL) {
       label = lookupEnter(tokenvalString);
-      if (label->isDefined) {
+      if ((label->status & STAT_DEFINED) != 0) {
         error("label '%s' multiply defined in line %d",
               label->name, lineno);
       }
-      label->isDefined = true;
-      label->value = currAddr;
+      label->status |= STAT_DEFINED;
+      label->segment = currSeg;
+      label->value = segPtr[currSeg];
       getToken();
     }
     if (token == TOK_IDENT) {
@@ -1110,8 +1612,107 @@ void assemble(void) {
       error("garbage in line %d", lineno);
     }
   }
-  fixupAll();
-  writeCode();
+}
+
+
+/**************************************************************/
+
+/* object file writer */
+
+
+static ExecHeader execHeader;
+
+static int fileOffset;
+static int fileDataSize;
+static int fileStringSize;
+
+
+static void writeDummyHeader(void) {
+  fwrite(&execHeader, sizeof(ExecHeader), 1, outFile);
+  /* update file offset */
+  fileOffset += sizeof(ExecHeader);
+}
+
+
+static void writeRealHeader(void) {
+  rewind(outFile);
+  execHeader.magic = EXEC_MAGIC;
+  execHeader.entry = 0;
+  conv4FromNativeToTarget((unsigned char *) &execHeader.magic);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.osegs);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.nsegs);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.osyms);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.nsyms);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.orels);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.nrels);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.odata);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.sdata);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.ostrs);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.sstrs);
+  conv4FromNativeToTarget((unsigned char *) &execHeader.entry);
+  fwrite(&execHeader, sizeof(ExecHeader), 1, outFile);
+  conv4FromTargetToNative((unsigned char *) &execHeader.magic);
+  conv4FromTargetToNative((unsigned char *) &execHeader.osegs);
+  conv4FromTargetToNative((unsigned char *) &execHeader.nsegs);
+  conv4FromTargetToNative((unsigned char *) &execHeader.osyms);
+  conv4FromTargetToNative((unsigned char *) &execHeader.nsyms);
+  conv4FromTargetToNative((unsigned char *) &execHeader.orels);
+  conv4FromTargetToNative((unsigned char *) &execHeader.nrels);
+  conv4FromTargetToNative((unsigned char *) &execHeader.odata);
+  conv4FromTargetToNative((unsigned char *) &execHeader.sdata);
+  conv4FromTargetToNative((unsigned char *) &execHeader.ostrs);
+  conv4FromTargetToNative((unsigned char *) &execHeader.sstrs);
+  conv4FromTargetToNative((unsigned char *) &execHeader.entry);
+}
+
+
+static void writeSegment(SegmentRecord *p) {
+}
+
+
+static void writeSegmentTable(void) {
+}
+
+
+static void writeSymbol(Symbol *s) {
+}
+
+
+static void writeSymbolTable(void) {
+}
+
+
+static void writeRelocTable(void) {
+}
+
+
+static void writeBytes(FILE *file) {
+}
+
+
+static void writeData(void) {
+}
+
+
+static void writeString(Symbol *s) {
+}
+
+
+static void writeStrings(void) {
+}
+
+
+void writeAll(void) {
+  fileOffset = 0;
+  fileDataSize = 0;
+  fileStringSize = 0;
+  writeDummyHeader();
+  writeSegmentTable();
+  writeSymbolTable();
+  writeRelocTable();
+  writeData();
+  writeStrings();
+  writeRealHeader();
 }
 
 
@@ -1121,21 +1722,41 @@ void assemble(void) {
 
 
 void usage(char *myself) {
-  fprintf(stderr, "Usage: %s <input file> <output file>\n", myself);
+  fprintf(stderr, "Usage: %s [-o <object file>] <input file>\n", myself);
   exit(1);
 }
 
 
 int main(int argc, char *argv[]) {
+  int i;
   char *inName;
   char *outName;
 
   sortInstrTable();
-  if (argc != 3) {
-    usage(argv[0]);
+  inName = NULL;
+  outName = DFLT_OUT_NAME;
+  for (i = 1; i < argc; i++) {
+    if (*argv[i] == '-') {
+      /* option */
+      if (strcmp(argv[i], "-o") == 0) {
+        if (i == argc - 1) {
+          usage(argv[0]);
+        }
+        outName = argv[++i];
+      } else {
+        usage(argv[0]);
+      }
+    } else {
+      /* file */
+      if (inName != NULL) {
+        usage(argv[0]);
+      }
+      inName = argv[i];
+    }
   }
-  inName = argv[1];
-  outName = argv[2];
+  if (inName == NULL) {
+    error("no input file");
+  }
   inFile = fopen(inName, "r");
   if (inFile == NULL) {
     error("cannot open input file '%s'", inName);
@@ -1144,7 +1765,8 @@ int main(int argc, char *argv[]) {
   if (outFile == NULL) {
     error("cannot open output file '%s'", outName);
   }
-  assemble();
+  asmModule();
+  writeAll();
   fclose(inFile);
   fclose(outFile);
   return 0;

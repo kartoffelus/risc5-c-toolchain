@@ -1,19 +1,34 @@
 #
-# Makefile for assembler
+# Makefile for RISC5 assembler
 #
 
-BUILD = ../build
+BUILD = ../../build
 
-EXE = asm
+CC = gcc
+CFLAGS = -g -Wall
+LDFLAGS = -g
+LDLIBS = -lm
 
-all:		$(EXE)
+SRCS = asm.c
+OBJS = $(patsubst %.c,%.o,$(SRCS))
+BIN = asm
 
-install:	$(EXE)
+all:		$(BIN)
+
+install:	$(BIN)
 		mkdir -p $(BUILD)/bin
-		cp $(EXE) $(BUILD)/bin
+		cp $(BIN) $(BUILD)/bin
 
-$(EXE):		asm.c
-		gcc -g -Wall -o $(EXE) asm.c
+$(BIN):		$(OBJS)
+		$(CC) $(LDFLAGS) -o $(BIN) $(OBJS) $(LDLIBS)
+
+%.o:		%.c
+		$(CC) $(CFLAGS) -o $@ -c $<
+
+depend.mak:
+		$(CC) -MM -MG $(CFLAGS) $(SRCS) >depend.mak
+
+-include depend.mak
 
 clean:
-		rm -f *~ $(EXE)
+		rm -f *~ $(OBJS) $(BIN) depend.mak a.out
