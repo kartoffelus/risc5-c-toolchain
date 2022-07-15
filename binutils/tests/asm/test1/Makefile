@@ -2,14 +2,14 @@
 # Makefile for RISC5 assembler test
 #
 
-BUILD = ../../build
+BUILD = ../../../../build
 
 all:		patterns all.asm
 
 install:	all
 
 check:		all
-		$(BUILD)/bin/asm all.asm all.mem
+		$(BUILD)/bin/asm -o all.mem all.asm
 		diff all.mem patterns
 
 patterns:	gen1

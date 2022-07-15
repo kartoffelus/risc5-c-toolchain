@@ -2,7 +2,7 @@
 # Makefile for RISC5 assembler test
 #
 
-BUILD = ../../build
+BUILD = ../../../../build
 
 all:		test.mem
 
@@ -12,7 +12,7 @@ check:		test.mem
 		diff test.mem test.ref
 
 test.mem:	test.asm
-		$(BUILD)/bin/asm test.asm test.mem
+		$(BUILD)/bin/asm -o test.mem test.asm
 
 clean:
 		rm -f *~ test.mem

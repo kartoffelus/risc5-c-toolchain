@@ -2,7 +2,7 @@
 # Makefile for assembler tests
 #
 
-BUILD = ../build
+BUILD = ../../../build
 
 DIRS = test1 test2 test3
 
