@@ -133,8 +133,9 @@
 typedef enum { false, true } Bool;
 
 
-#define STAT_DEFINED	0x01	/* set iff symbol is defined */
-#define STAT_GLOBAL	0x02	/* set iff symbol is global */
+#define STAT_DEFINED	0x01	/* symbol is defined */
+#define STAT_GLOBAL	0x02	/* symbol is global */
+#define STAT_SKIP	0x04	/* symbol is neither defined nor used here */
 
 #define SEG_ABS		-1	/* absolute values */
 #define SEG_CODE	0	/* code segment */
@@ -251,6 +252,34 @@ void conv4FromNativeToTarget(unsigned char *p) {
 }
 
 
+unsigned short read2FromTarget(unsigned char *p) {
+  return (unsigned short) p[0] << 0 |
+         (unsigned short) p[1] << 8;
+}
+
+
+void write2ToTarget(unsigned char *p, unsigned short data) {
+  p[0] = data >> 0;
+  p[1] = data >> 8;
+}
+
+
+void conv2FromTargetToNative(unsigned char *p) {
+  unsigned short data;
+
+  data = read2FromTarget(p);
+  * (unsigned short *) p = data;
+}
+
+
+void conv2FromNativeToTarget(unsigned char *p) {
+  unsigned short data;
+
+  data = * (unsigned short *) p;
+  write2ToTarget(p, data);
+}
+
+
 /**************************************************************/
 
 /* other helper functions */
@@ -352,6 +381,21 @@ Symbol *lookupEnter(char *name) {
 }
 
 
+void walkSymbolTree(Symbol *s, void (*fp)(Symbol *sp)) {
+  if (s == NULL) {
+    return;
+  }
+  walkSymbolTree(s->left, fp);
+  (*fp)(s);
+  walkSymbolTree(s->right, fp);
+}
+
+
+void walkSymbolTable(void (*fp)(Symbol *sp)) {
+  walkSymbolTree(symbolTable, fp);
+}
+
+
 /**************************************************************/
 
 /* handle fixups */
@@ -369,6 +413,233 @@ void addFixup(Symbol *s,
   //f = newFixup(segment, offset, method, value);
   //f->next = s->fixups;
   //s->fixups = f;
+}
+
+
+/**************************************************************/
+
+/* code array management */
+
+
+#define MAX_CODE_INIT		256
+#define MAX_CODE_MULT		4
+
+
+unsigned char *codeArray = NULL;	/* the code proper */
+unsigned int codeSize = 0;		/* the current code size */
+unsigned int codeMaxSize = 0;		/* the code array's current size */
+
+
+void growCodeArray(void) {
+  unsigned int newMaxSize;
+  unsigned char *newCodeArray;
+  unsigned int i;
+
+  if (codeMaxSize == 0) {
+    /* first allocation */
+    newMaxSize = MAX_CODE_INIT;
+  } else {
+    /* subsequent allocation */
+    newMaxSize = codeMaxSize * MAX_CODE_MULT;
+  }
+  newCodeArray = memAlloc(newMaxSize);
+  for (i = 0; i < codeSize; i++) {
+    newCodeArray[i] = codeArray[i];
+  }
+  if (codeArray != NULL) {
+    memFree(codeArray);
+  }
+  codeArray = newCodeArray;
+  codeMaxSize = newMaxSize;
+}
+
+
+void putCodeWord(unsigned int data) {
+  if (codeSize + 4 > codeMaxSize) {
+    growCodeArray();
+  }
+  write4ToTarget(codeArray + codeSize, data);
+  codeSize += 4;
+}
+
+
+void putCodeHalf(unsigned short data) {
+  if (codeSize + 2 > codeMaxSize) {
+    growCodeArray();
+  }
+  write2ToTarget(codeArray + codeSize, data);
+  codeSize += 2;
+}
+
+
+void putCodeByte(unsigned char data) {
+  if (codeSize + 1 > codeMaxSize) {
+    growCodeArray();
+  }
+  *(codeArray + codeSize) = data;
+  codeSize += 1;
+}
+
+
+void writeCodeBytes(void) {
+  int i;
+
+  for (i = 0; i < codeSize; i++) {
+    fputc(codeArray[i], outFile);
+  }
+}
+
+
+/**************************************************************/
+
+/* data array management */
+
+
+#define MAX_DATA_INIT		256
+#define MAX_DATA_MULT		4
+
+
+unsigned char *dataArray = NULL;	/* the data proper */
+unsigned int dataSize = 0;		/* the current data size */
+unsigned int dataMaxSize = 0;		/* the data array's current size */
+
+
+void growDataArray(void) {
+  unsigned int newMaxSize;
+  unsigned char *newDataArray;
+  unsigned int i;
+
+  if (dataMaxSize == 0) {
+    /* first allocation */
+    newMaxSize = MAX_DATA_INIT;
+  } else {
+    /* subsequent allocation */
+    newMaxSize = dataMaxSize * MAX_DATA_MULT;
+  }
+  newDataArray = memAlloc(newMaxSize);
+  for (i = 0; i < dataSize; i++) {
+    newDataArray[i] = dataArray[i];
+  }
+  if (dataArray != NULL) {
+    memFree(dataArray);
+  }
+  dataArray = newDataArray;
+  dataMaxSize = newMaxSize;
+}
+
+
+void putDataWord(unsigned int data) {
+  if (dataSize + 4 > dataMaxSize) {
+    growDataArray();
+  }
+  write4ToTarget(dataArray + dataSize, data);
+  dataSize += 4;
+}
+
+
+void putDataHalf(unsigned short data) {
+  if (dataSize + 2 > dataMaxSize) {
+    growDataArray();
+  }
+  write2ToTarget(dataArray + dataSize, data);
+  dataSize += 2;
+}
+
+
+void putDataByte(unsigned char data) {
+  if (dataSize + 1 > dataMaxSize) {
+    growDataArray();
+  }
+  *(dataArray + dataSize) = data;
+  dataSize += 1;
+}
+
+
+void writeDataBytes(void) {
+  int i;
+
+  for (i = 0; i < dataSize; i++) {
+    fputc(dataArray[i], outFile);
+  }
+}
+
+
+/**************************************************************/
+
+/* code and data emitter */
+
+
+void emitWord(unsigned int word) {
+  if (debugEmit) {
+    printf("DEBUG: word @ segment = %s, offset = %08X",
+           segName(currSeg), segPtr[currSeg]);
+    printf(", value = %02X%02X%02X%02X\n",
+           (word >> 24) & 0xFF, (word >> 16) & 0xFF,
+           (word >> 8) & 0xFF, word & 0xFF);
+  }
+  switch (currSeg) {
+    case SEG_ABS:
+      error("illegal segment in emitWord()");
+      break;
+    case SEG_CODE:
+      putCodeWord(word);
+      break;
+    case SEG_DATA:
+      putDataWord(word);
+      break;
+    case SEG_BSS:
+      break;
+  }
+  segPtr[currSeg] += 4;
+}
+
+
+void emitHalf(unsigned int half) {
+  half &= 0x0000FFFF;
+  if (debugEmit) {
+    printf("DEBUG: half @ segment = %s, offset = %08X",
+           segName(currSeg), segPtr[currSeg]);
+    printf(", value = %02X%02X\n",
+           (half >> 8) & 0xFF, half & 0xFF);
+  }
+  switch (currSeg) {
+    case SEG_ABS:
+      error("illegal segment in emitHalf()");
+      break;
+    case SEG_CODE:
+      putCodeHalf(half);
+      break;
+    case SEG_DATA:
+      putDataHalf(half);
+      break;
+    case SEG_BSS:
+      break;
+  }
+  segPtr[currSeg] += 2;
+}
+
+
+void emitByte(unsigned int byte) {
+  byte &= 0x000000FF;
+  if (debugEmit) {
+    printf("DEBUG: byte @ segment = %s, offset = %08X",
+           segName(currSeg), segPtr[currSeg]);
+    printf(", value = %02X\n", byte);
+  }
+  switch (currSeg) {
+    case SEG_ABS:
+      error("illegal segment in emitByte()");
+      break;
+    case SEG_CODE:
+      putCodeByte(byte);
+      break;
+    case SEG_DATA:
+      putDataByte(byte);
+      break;
+    case SEG_BSS:
+      break;
+  }
+  segPtr[currSeg] += 1;
 }
 
 
@@ -654,215 +925,6 @@ void expect(int expected) {
     error("%s expected, got %s in line %d",
           tok2str[expected], tok2str[token], lineno);
   }
-}
-
-
-/**************************************************************/
-
-/* code array management */
-
-
-#define MAX_CODE_INIT		256
-#define MAX_CODE_MULT		4
-
-
-unsigned char *codeArray = NULL;	/* the code proper */
-unsigned int codeSize = 0;		/* the current code size */
-unsigned int codeMaxSize = 0;		/* the code array's current size */
-
-
-void growCodeArray(void) {
-  unsigned int newMaxSize;
-  unsigned char *newCodeArray;
-  unsigned int i;
-
-  if (codeMaxSize == 0) {
-    /* first allocation */
-    newMaxSize = MAX_CODE_INIT;
-  } else {
-    /* subsequent allocation */
-    newMaxSize = codeMaxSize * MAX_CODE_MULT;
-  }
-  newCodeArray = memAlloc(newMaxSize);
-  for (i = 0; i < codeSize; i++) {
-    newCodeArray[i] = codeArray[i];
-  }
-  if (codeArray != NULL) {
-    memFree(codeArray);
-  }
-  codeArray = newCodeArray;
-  codeMaxSize = newMaxSize;
-}
-
-
-void putCodeWord(unsigned int data) {
-  if (codeSize + 4 > codeMaxSize) {
-    growCodeArray();
-  }
-  *(unsigned int *)(codeArray + codeSize) = data;
-  codeSize += 4;
-}
-
-
-void putCodeHalf(unsigned short data) {
-  if (codeSize + 2 > codeMaxSize) {
-    growCodeArray();
-  }
-  *(unsigned short *)(codeArray + codeSize) = data;
-  codeSize += 2;
-}
-
-
-void putCodeByte(unsigned char data) {
-  if (codeSize + 1 > codeMaxSize) {
-    growCodeArray();
-  }
-  *(unsigned char *)(codeArray + codeSize) = data;
-  codeSize += 1;
-}
-
-
-/**************************************************************/
-
-/* data array management */
-
-
-#define MAX_DATA_INIT		256
-#define MAX_DATA_MULT		4
-
-
-unsigned char *dataArray = NULL;	/* the data proper */
-unsigned int dataSize = 0;		/* the current data size */
-unsigned int dataMaxSize = 0;		/* the data array's current size */
-
-
-void growDataArray(void) {
-  unsigned int newMaxSize;
-  unsigned char *newDataArray;
-  unsigned int i;
-
-  if (dataMaxSize == 0) {
-    /* first allocation */
-    newMaxSize = MAX_DATA_INIT;
-  } else {
-    /* subsequent allocation */
-    newMaxSize = dataMaxSize * MAX_DATA_MULT;
-  }
-  newDataArray = memAlloc(newMaxSize);
-  for (i = 0; i < dataSize; i++) {
-    newDataArray[i] = dataArray[i];
-  }
-  if (dataArray != NULL) {
-    memFree(dataArray);
-  }
-  dataArray = newDataArray;
-  dataMaxSize = newMaxSize;
-}
-
-
-void putDataWord(unsigned int data) {
-  if (dataSize + 4 > dataMaxSize) {
-    growDataArray();
-  }
-  *(unsigned int *)(dataArray + dataSize) = data;
-  dataSize += 4;
-}
-
-
-void putDataHalf(unsigned short data) {
-  if (dataSize + 2 > dataMaxSize) {
-    growDataArray();
-  }
-  *(unsigned short *)(dataArray + dataSize) = data;
-  dataSize += 2;
-}
-
-
-void putDataByte(unsigned char data) {
-  if (dataSize + 1 > dataMaxSize) {
-    growDataArray();
-  }
-  *(unsigned char *)(dataArray + dataSize) = data;
-  dataSize += 1;
-}
-
-
-/**************************************************************/
-
-/* code and data emitter */
-
-
-void emitWord(unsigned int word) {
-  if (debugEmit) {
-    printf("DEBUG: word @ segment = %s, offset = %08X",
-           segName(currSeg), segPtr[currSeg]);
-    printf(", value = %02X%02X%02X%02X\n",
-           (word >> 24) & 0xFF, (word >> 16) & 0xFF,
-           (word >> 8) & 0xFF, word & 0xFF);
-  }
-  switch (currSeg) {
-    case SEG_ABS:
-      error("illegal segment in emitWord()");
-      break;
-    case SEG_CODE:
-      putCodeWord(word);
-      break;
-    case SEG_DATA:
-      putDataWord(word);
-      break;
-    case SEG_BSS:
-      break;
-  }
-  segPtr[currSeg] += 4;
-}
-
-
-void emitHalf(unsigned int half) {
-  half &= 0x0000FFFF;
-  if (debugEmit) {
-    printf("DEBUG: half @ segment = %s, offset = %08X",
-           segName(currSeg), segPtr[currSeg]);
-    printf(", value = %02X%02X\n",
-           (half >> 8) & 0xFF, half & 0xFF);
-  }
-  switch (currSeg) {
-    case SEG_ABS:
-      error("illegal segment in emitHalf()");
-      break;
-    case SEG_CODE:
-      putCodeHalf(half);
-      break;
-    case SEG_DATA:
-      putDataHalf(half);
-      break;
-    case SEG_BSS:
-      break;
-  }
-  segPtr[currSeg] += 2;
-}
-
-
-void emitByte(unsigned int byte) {
-  byte &= 0x000000FF;
-  if (debugEmit) {
-    printf("DEBUG: byte @ segment = %s, offset = %08X",
-           segName(currSeg), segPtr[currSeg]);
-    printf(", value = %02X\n", byte);
-  }
-  switch (currSeg) {
-    case SEG_ABS:
-      error("illegal segment in emitByte()");
-      break;
-    case SEG_CODE:
-      putCodeByte(byte);
-      break;
-    case SEG_DATA:
-      putDataByte(byte);
-      break;
-    case SEG_BSS:
-      break;
-  }
-  segPtr[currSeg] += 1;
 }
 
 
@@ -1620,11 +1682,18 @@ void asmModule(void) {
 /* object file writer */
 
 
+#define CODE_NAME	".code"
+#define DATA_NAME	".data"
+#define BSS_NAME	".bss"
+
+
 static ExecHeader execHeader;
 
 static int fileOffset;
 static int fileDataSize;
 static int fileStringSize;
+
+static int nsyms;
 
 
 static void writeDummyHeader(void) {
@@ -1667,18 +1736,98 @@ static void writeRealHeader(void) {
 
 
 static void writeSegment(SegmentRecord *p) {
+  conv4FromNativeToTarget((unsigned char *) &p->name);
+  conv4FromNativeToTarget((unsigned char *) &p->offs);
+  conv4FromNativeToTarget((unsigned char *) &p->addr);
+  conv4FromNativeToTarget((unsigned char *) &p->size);
+  conv4FromNativeToTarget((unsigned char *) &p->attr);
+  fwrite(p, sizeof(SegmentRecord), 1, outFile);
+  conv4FromTargetToNative((unsigned char *) &p->name);
+  conv4FromTargetToNative((unsigned char *) &p->offs);
+  conv4FromTargetToNative((unsigned char *) &p->addr);
+  conv4FromTargetToNative((unsigned char *) &p->size);
+  conv4FromTargetToNative((unsigned char *) &p->attr);
 }
 
 
 static void writeSegmentTable(void) {
+  SegmentRecord segment;
+
+  /* record file offset */
+  execHeader.osegs = fileOffset;
+  /* write code segment descriptor */
+  segment.name = fileStringSize;
+  fileStringSize += strlen(CODE_NAME) + 1;
+  segment.offs = fileDataSize;
+  segment.addr = 0;
+  segment.size = segPtr[SEG_CODE];
+  segment.attr = SEG_ATTR_A | SEG_ATTR_P | SEG_ATTR_X;
+  writeSegment(&segment);
+  fileDataSize += segment.size;
+  /* write data segment descriptor */
+  segment.name = fileStringSize;
+  fileStringSize += strlen(DATA_NAME) + 1;
+  segment.offs = fileDataSize;
+  segment.addr = 0;
+  segment.size = segPtr[SEG_DATA];
+  segment.attr = SEG_ATTR_A | SEG_ATTR_P | SEG_ATTR_W;
+  writeSegment(&segment);
+  fileDataSize += segment.size;
+  /* write bss segment descriptor */
+  segment.name = fileStringSize;
+  fileStringSize += strlen(BSS_NAME) + 1;
+  segment.offs = fileDataSize;
+  segment.addr = 0;
+  segment.size = segPtr[SEG_BSS];
+  segment.attr = SEG_ATTR_A | SEG_ATTR_W;
+  writeSegment(&segment);
+  fileDataSize += 0;  /* segment not present */
+  /* update file offset */
+  execHeader.nsegs = 3;
+  fileOffset += execHeader.nsegs * sizeof(SegmentRecord);
 }
 
 
 static void writeSymbol(Symbol *s) {
+  SymbolRecord symRec;
+
+  if ((s->status & STAT_SKIP) != 0) {
+    /* this symbol is neither defined nor referenced here: skip */
+    return;
+  }
+  symRec.name = fileStringSize;
+  fileStringSize += strlen(s->name) + 1;
+  if ((s->status & STAT_DEFINED) == 0) {
+    symRec.val = 0;
+    symRec.seg = -1;
+    symRec.attr = SYM_ATTR_U;
+  } else {
+    symRec.val = s->value;
+    symRec.seg = s->segment;
+    symRec.attr = 0;
+  }
+  conv4FromNativeToTarget((unsigned char *) &symRec.name);
+  conv4FromNativeToTarget((unsigned char *) &symRec.val);
+  conv4FromNativeToTarget((unsigned char *) &symRec.seg);
+  conv4FromNativeToTarget((unsigned char *) &symRec.attr);
+  fwrite(&symRec, sizeof(SymbolRecord), 1, outFile);
+  conv4FromTargetToNative((unsigned char *) &symRec.name);
+  conv4FromTargetToNative((unsigned char *) &symRec.val);
+  conv4FromTargetToNative((unsigned char *) &symRec.seg);
+  conv4FromTargetToNative((unsigned char *) &symRec.attr);
+  nsyms++;
 }
 
 
 static void writeSymbolTable(void) {
+  /* record file offset */
+  execHeader.osyms = fileOffset;
+  /* write symbol table */
+  nsyms = 0;
+  walkSymbolTable(writeSymbol);
+  /* update file offset */
+  execHeader.nsyms = nsyms;
+  fileOffset += execHeader.nsyms * sizeof(SymbolRecord);
 }
 
 
@@ -1686,19 +1835,43 @@ static void writeRelocTable(void) {
 }
 
 
-static void writeBytes(FILE *file) {
-}
-
-
 static void writeData(void) {
+  /* record file offset */
+  execHeader.odata = fileOffset;
+  /* write segment data */
+  writeCodeBytes();
+  writeDataBytes();
+  /* update file offset */
+  execHeader.sdata = fileDataSize;
+  fileOffset += execHeader.sdata;
 }
 
 
-static void writeString(Symbol *s) {
+static void writeSymbolName(Symbol *s) {
+  if ((s->status & STAT_SKIP) != 0) {
+    /* this symbol is neither defined nor referenced here: skip */
+    return;
+  }
+  fputs(s->name, outFile);
+  fputc('\0', outFile);
 }
 
 
 static void writeStrings(void) {
+  /* record file offset */
+  execHeader.ostrs = fileOffset;
+  /* write segment names */
+  fputs(CODE_NAME, outFile);
+  fputc('\0', outFile);
+  fputs(DATA_NAME, outFile);
+  fputc('\0', outFile);
+  fputs(BSS_NAME, outFile);
+  fputc('\0', outFile);
+  /* write symbol names */
+  walkSymbolTable(writeSymbolName);
+  /* update file offsets */
+  execHeader.sstrs = fileStringSize;
+  fileOffset += execHeader.sstrs;
 }
 
 
