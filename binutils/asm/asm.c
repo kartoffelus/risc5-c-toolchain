@@ -135,7 +135,7 @@ typedef enum { false, true } Bool;
 
 #define STAT_DEFINED	0x01	/* symbol is defined */
 #define STAT_GLOBAL	0x02	/* symbol is global */
-#define STAT_SKIP	0x04	/* symbol is neither defined nor used here */
+#define STAT_USED	0x04	/* symbol is used by fixups */
 
 #define SEG_ABS		-1	/* absolute values */
 #define SEG_CODE	0	/* code segment */
@@ -153,13 +153,23 @@ typedef struct symbol {
 } Symbol;
 
 
+typedef struct fixup {
+  int segment;			/* in which segment */
+  unsigned int offset;		/* at which offset */
+  int method;			/* what coding method is to be used */
+  struct symbol *sym;		/* which symbol is referenced */
+  int add;			/* with what additive constant */
+  struct fixup *next;		/* next fixup */
+} Fixup;
+
+
 /**************************************************************/
 
 /* global variables */
 
 
 Bool debugToken = false;
-Bool debugEmit = true;
+Bool debugEmit = false;
 Bool debugFixup = true;
 
 FILE *inFile;
@@ -285,21 +295,26 @@ void conv2FromNativeToTarget(unsigned char *p) {
 /* other helper functions */
 
 
+#define CODE_NAME	".code"
+#define DATA_NAME	".data"
+#define BSS_NAME	".bss"
+
+
 char *segName(int segment) {
   char *name;
 
   switch (segment) {
     case SEG_ABS:
-      name = "ABS";
+      name = "<abs>";
       break;
     case SEG_CODE:
-      name = "CODE";
+      name = CODE_NAME;
       break;
     case SEG_DATA:
-      name = "DATA";
+      name = DATA_NAME;
       break;
     case SEG_BSS:
-      name = "BSS";
+      name = BSS_NAME;
       break;
     default:
       name = "<unknown>";
@@ -309,10 +324,32 @@ char *segName(int segment) {
 }
 
 
+#define H16_NAME	"H16"
+#define L16_NAME	"L16"
+#define L20_NAME	"L20"
+#define R24_NAME	"R24"
+#define W32_NAME	"W32"
+
+
 char *methodName(int method) {
   char *name;
 
   switch (method) {
+    case RELOC_H16:
+      name = H16_NAME;
+      break;
+    case RELOC_L16:
+      name = L16_NAME;
+      break;
+    case RELOC_L20:
+      name = L20_NAME;
+      break;
+    case RELOC_R24:
+      name = R24_NAME;
+      break;
+    case RELOC_W32:
+      name = W32_NAME;
+      break;
     default:
       name = "<unknown>";
       break;
@@ -398,21 +435,53 @@ void walkSymbolTable(void (*fp)(Symbol *sp)) {
 
 /**************************************************************/
 
-/* handle fixups */
+/* fixups */
 
 
-void addFixup(Symbol *s,
-              int segment, unsigned int offset,
-              int method, int value) {
-  //Fixup *f;
+Fixup *fixupList = NULL;
+Fixup *relocList = NULL;
+
+
+void addFixup(int segment, unsigned int offset,
+              int method, Symbol *sym, int add) {
+  Fixup *f;
 
   if (debugFixup) {
-    printf("DEBUG: fixup (s:%s, o:%08X, m:%s, v:%08X) added to '%s'\n",
-           segName(segment), offset, methodName(method), value, s->name);
+    printf("DEBUG: addFixup (segment: %s, offset: %08X,\n"
+           "                 method: %s, symbol: '%s', add: %08X)\n",
+           segName(segment), offset, methodName(method), sym->name, add);
   }
-  //f = newFixup(segment, offset, method, value);
-  //f->next = s->fixups;
-  //s->fixups = f;
+  f = memAlloc(sizeof(Fixup));
+  f->segment = segment;
+  f->offset = offset;
+  f->method = method;
+  f->sym = sym;
+  f->add = add;
+  f->next = fixupList;
+  fixupList = f;
+  /* mark symbol as used */
+  sym->status |= STAT_USED;
+}
+
+
+void doFixup(Fixup *f) {
+  if (debugFixup) {
+    printf("DEBUG: doFixup (segment: %s, offset: %08X,\n"
+           "                method: %s, symbol: '%s', add: %08X)\n",
+           segName(f->segment), f->offset,
+           methodName(f->method), f->sym->name, f->add);
+  }
+}
+
+
+void doFixups(void) {
+  Fixup *f;
+
+  while (fixupList != NULL) {
+    f = fixupList;
+    fixupList = f->next;
+    doFixup(f);
+  }
 }
 
 
@@ -1212,6 +1281,7 @@ void format_3(unsigned int code) {
     getToken();
     emitWord(code | (reg1 << 24) | (reg2 << 20) | reg3);
   } else {
+    error("format_3(reg, reg, imm) not implemented yet");
 #if 0
     v = parseExpression();
     imm = getValue(FIXUP_IMMEDIATE);
@@ -1380,23 +1450,6 @@ void dotSpace(unsigned int code) {
 
 
 /*
- * .LOCATE n
- * emit zero-bytes until address n is reached
- */
-void dotLocate(unsigned int code) {
-  Value v;
-
-  v = parseExpression();
-  if (v.sym != NULL) {
-    error("absolute expression expected in line %d", lineno);
-  }
-  while (segPtr[currSeg] != v.con) {
-    emitByte(0);
-  }
-}
-
-
-/*
  * .WORD <comma-separated list of values>
  * deposit the 32-bit values in memory
  */
@@ -1408,7 +1461,7 @@ void dotWord(unsigned int code) {
     if (v.sym == NULL) {
       emitWord(v.con);
     } else {
-      addFixup(v.sym, currSeg, segPtr[currSeg], RELOC_W32, v.con);
+      addFixup(currSeg, segPtr[currSeg], RELOC_W32, v.sym, v.con);
       emitWord(0);
     }
     if (token != TOK_COMMA) {
@@ -1443,6 +1496,7 @@ void dotHalf(unsigned int code) {
 /*
  * .BYTE <comma-separated list of values>
  * deposit the 8-bit values in memory
+ * strings are stored without a trailing zero
  */
 void dotByte(unsigned int code) {
   Value v;
@@ -1594,7 +1648,6 @@ Instr instrTable[] = {
   { ".GLOBAL", dotGlobal, 0		},
   { ".ALIGN",  dotAlign,  0		},
   { ".SPACE",  dotSpace,  0		},
-  { ".LOCATE", dotLocate, 0		},
   { ".WORD",   dotWord,   0		},
   { ".HALF",   dotHalf,   0		},
   { ".BYTE",   dotByte,   0		},
@@ -1674,17 +1727,13 @@ void asmModule(void) {
       error("garbage in line %d", lineno);
     }
   }
+  doFixups();
 }
 
 
 /**************************************************************/
 
 /* object file writer */
-
-
-#define CODE_NAME	".code"
-#define DATA_NAME	".data"
-#define BSS_NAME	".bss"
 
 
 static ExecHeader execHeader;
@@ -1791,8 +1840,12 @@ static void writeSegmentTable(void) {
 static void writeSymbol(Symbol *s) {
   SymbolRecord symRec;
 
-  if ((s->status & STAT_SKIP) != 0) {
-    /* this symbol is neither defined nor referenced here: skip */
+  if ((s->status & STAT_GLOBAL) == 0) {
+    /* this symbol isn't global: skip */
+    return;
+  }
+  if ((s->status & STAT_DEFINED) == 0 && (s->status & STAT_USED) == 0) {
+    /* this symbol is neither defined nor used here: skip */
     return;
   }
   symRec.name = fileStringSize;
@@ -1848,8 +1901,12 @@ static void writeData(void) {
 
 
 static void writeSymbolName(Symbol *s) {
-  if ((s->status & STAT_SKIP) != 0) {
-    /* this symbol is neither defined nor referenced here: skip */
+  if ((s->status & STAT_GLOBAL) == 0) {
+    /* this symbol isn't global: skip */
+    return;
+  }
+  if ((s->status & STAT_DEFINED) == 0 && (s->status & STAT_USED) == 0) {
+    /* this symbol is neither defined nor used here: skip */
     return;
   }
   fputs(s->name, outFile);
