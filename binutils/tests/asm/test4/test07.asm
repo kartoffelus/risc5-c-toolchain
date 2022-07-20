@@ -1,0 +1,32 @@
+//
+// test07.asm -- check relocations
+//
+
+	.DATA
+
+	.WORD	0x12345678
+	.WORD	0x12345678
+	.WORD	0x12345678
+
+	.WORD	label1
+	.WORD	label2
+
+	.CODE
+
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
+
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
+
+label1:
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
+
+label2:
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
+	ADD	R0,R1,R2
