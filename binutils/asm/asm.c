@@ -173,7 +173,7 @@ typedef struct fixup {
 
 Bool debugToken = false;
 Bool debugEmit = false;
-Bool debugFixup = true;
+Bool debugFixup = false;
 
 FILE *inFile;
 FILE *outFile;
