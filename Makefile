@@ -36,6 +36,6 @@ clean:
 dist:		clean
 		(cd .. ; \
 		 tar --exclude-vcs -cvf \
-		   risc5-$(VERSION).tar \
-		   risc5/* ; \
-		 gzip -f risc5-$(VERSION).tar)
+		   risc5-c-toolchain-$(VERSION).tar \
+		   risc5-c-toolchain/* ; \
+		 gzip -f risc5-c-toolchain-$(VERSION).tar)

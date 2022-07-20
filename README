@@ -1,1 +1,4 @@
-test - test - test
+
+This project tries to establish a toolchain for running
+programs written in C on N. Wirth's RISC5 processor.
+
