@@ -16,8 +16,8 @@ Current status of development
 
 5) RISC5 binutils
    include			done
-   asm				not yet
-   dump				not yet
+   asm				started
+   dump				done
    link				not yet
    load				not yet
    mklib			not yet
