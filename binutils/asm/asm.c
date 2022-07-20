@@ -148,6 +148,7 @@ typedef struct symbol {
   int status;			/* status of symbol */
   int segment;			/* the symbol's segment, -1: absolute */
   int value;			/* the symbol's value */
+  int number;			/* the symbol's number (only for output) */
   struct symbol *left;		/* left son in binary search tree */
   struct symbol *right;		/* right son in binary search tree */
 } Symbol;
@@ -157,8 +158,10 @@ typedef struct fixup {
   int segment;			/* in which segment */
   unsigned int offset;		/* at which offset */
   int method;			/* what coding method is to be used */
-  struct symbol *sym;		/* which symbol is referenced */
-  int add;			/* with what additive constant */
+  struct symbol *refSym;	/* which symbol is referenced */
+  int refSeg;			/* alternatively, if sym = NULL: */
+				/* which segment is referenced */
+  int add;			/* additive part of value */
   struct fixup *next;		/* next fixup */
 } Fixup;
 
@@ -372,6 +375,7 @@ Symbol *newSymbol(char *name) {
   p->status = 0;
   p->segment = SEG_ABS;
   p->value = 0;
+  p->number = -1;
   p->left = NULL;
   p->right = NULL;
   return p;
@@ -439,37 +443,61 @@ void walkSymbolTable(void (*fp)(Symbol *sp)) {
 
 
 Fixup *fixupList = NULL;
-Fixup *relocList = NULL;
+Fixup *fixupLast;
 
 
 void addFixup(int segment, unsigned int offset,
-              int method, Symbol *sym, int add) {
+              int method, Symbol *refSym, int add) {
   Fixup *f;
 
   if (debugFixup) {
     printf("DEBUG: addFixup (segment: %s, offset: %08X,\n"
-           "                 method: %s, symbol: '%s', add: %08X)\n",
-           segName(segment), offset, methodName(method), sym->name, add);
+           "                 method: %s, refSym: '%s', add: %08X)\n",
+           segName(segment), offset,
+           methodName(method), refSym->name, add);
   }
   f = memAlloc(sizeof(Fixup));
   f->segment = segment;
   f->offset = offset;
   f->method = method;
-  f->sym = sym;
+  f->refSym = refSym;
+  f->refSeg = -1;
   f->add = add;
-  f->next = fixupList;
-  fixupList = f;
+  /* append fixup to list (prepending should also be OK) */
+  f->next = NULL;
+  if (fixupList == NULL) {
+    fixupList = f;
+  } else {
+    fixupLast->next = f;
+  }
+  fixupLast = f;
   /* mark symbol as used */
-  sym->status |= STAT_USED;
+  refSym->status |= STAT_USED;
 }
 
 
 void doFixup(Fixup *f) {
+  Symbol *refSym;
+
   if (debugFixup) {
     printf("DEBUG: doFixup (segment: %s, offset: %08X,\n"
-           "                method: %s, symbol: '%s', add: %08X)\n",
+           "                method: %s, refSym: '%s', add: %08X)\n",
            segName(f->segment), f->offset,
-           methodName(f->method), f->sym->name, f->add);
+           methodName(f->method), f->refSym->name, f->add);
+  }
+  refSym = f->refSym;
+  if ((refSym->status & STAT_GLOBAL) == 0) {
+    /* this is a local symbol */
+    if ((refSym->status & STAT_DEFINED) == 0) {
+      /* at this point, local symbols have to be defined */
+      error("undefined symbol '%s'", refSym->name);
+    }
+    /* mutate the symbol-based fixup into a segment-based relocation */
+    f->refSym = NULL;
+    f->refSeg = refSym->segment;
+    f->add += refSym->value;
+  } else {
+    /* this is a global symbol: nothing to do here */
   }
 }
 
@@ -477,10 +505,10 @@ void doFixup(Fixup *f) {
 void doFixups(void) {
   Fixup *f;
 
-  while (fixupList != NULL) {
-    f = fixupList;
-    fixupList = f->next;
+  f = fixupList;
+  while (f != NULL) {
     doFixup(f);
+    f = f->next;
   }
 }
 
@@ -1229,7 +1257,7 @@ Value parseExpression(void) {
 
 
 /*
- * operands: register, register or immediate
+ * format_0 operands: register, register or immediate
  */
 void format_0(unsigned int code) {
   error("format_0() not implemented yet");
@@ -1237,7 +1265,7 @@ void format_0(unsigned int code) {
 
 
 /*
- * operands: register, immediate
+ * format_1 operands: register, immediate
  * ATTENTION: high-order 16 bits encoded in instruction
  */
 void format_1(unsigned int code) {
@@ -1246,7 +1274,7 @@ void format_1(unsigned int code) {
 
 
 /*
- * operand: register
+ * format_2 operand: register
  */
 void format_2(unsigned int code) {
   int reg;
@@ -1259,7 +1287,7 @@ void format_2(unsigned int code) {
 
 
 /*
- * operands: register, register, register or immediate
+ * format_3 operands: register, register, register or immediate
  */
 void format_3(unsigned int code) {
   int reg1;
@@ -1301,7 +1329,7 @@ void format_3(unsigned int code) {
 
 
 /*
- * operands: register, register
+ * format_4 operands: register, register
  */
 void format_4(unsigned int code) {
   int reg1;
@@ -1320,7 +1348,7 @@ void format_4(unsigned int code) {
 
 
 /*
- * operands: register, register, offset
+ * format_5 operands: register, register, offset
  */
 void format_5(unsigned int code) {
   error("format_5() not implemented yet");
@@ -1328,7 +1356,7 @@ void format_5(unsigned int code) {
 
 
 /*
- * operand: register or target address
+ * format_6 operand: register or target address
  */
 void format_6(unsigned int code) {
   error("format_6() not implemented yet");
@@ -1336,7 +1364,7 @@ void format_6(unsigned int code) {
 
 
 /*
- * operands: none
+ * format_7 operands: none
  */
 void format_7(unsigned int code) {
   emitWord(code);
@@ -1743,6 +1771,7 @@ static int fileDataSize;
 static int fileStringSize;
 
 static int nsyms;
+static int nrels;
 
 
 static void writeDummyHeader(void) {
@@ -1868,6 +1897,8 @@ static void writeSymbol(Symbol *s) {
   conv4FromTargetToNative((unsigned char *) &symRec.val);
   conv4FromTargetToNative((unsigned char *) &symRec.seg);
   conv4FromTargetToNative((unsigned char *) &symRec.attr);
+  /* the symbols get consecutive numbers */
+  s->number = nsyms;
   nsyms++;
 }
 
@@ -1884,7 +1915,55 @@ static void writeSymbolTable(void) {
 }
 
 
+static void writeReloc(Fixup *f) {
+  RelocRecord relRec;
+
+  if (f->segment != SEG_CODE && f->segment != SEG_DATA) {
+    /* this should never happen */
+    error("fixup found in a segment other than code or data");
+  }
+  relRec.loc = f->offset;
+  relRec.seg = f->segment;
+  if (f->refSym != NULL) {
+    /* relocation references a symbol */
+    relRec.typ = f->method | RELOC_SYM;
+    relRec.ref = f->refSym->number;
+  } else {
+    /* relocation references a segment */
+    relRec.typ = f->method;
+    relRec.ref = f->refSeg;
+  }
+  relRec.add = f->add;
+  conv4FromNativeToTarget((unsigned char *) &relRec.loc);
+  conv4FromNativeToTarget((unsigned char *) &relRec.seg);
+  conv4FromNativeToTarget((unsigned char *) &relRec.typ);
+  conv4FromNativeToTarget((unsigned char *) &relRec.ref);
+  conv4FromNativeToTarget((unsigned char *) &relRec.add);
+  fwrite(&relRec, sizeof(RelocRecord), 1, outFile);
+  conv4FromTargetToNative((unsigned char *) &relRec.loc);
+  conv4FromTargetToNative((unsigned char *) &relRec.seg);
+  conv4FromTargetToNative((unsigned char *) &relRec.typ);
+  conv4FromTargetToNative((unsigned char *) &relRec.ref);
+  conv4FromTargetToNative((unsigned char *) &relRec.add);
+  nrels++;
+}
+
+
 static void writeRelocTable(void) {
+  Fixup *f;
+
+  /* record file offset */
+  execHeader.orels = fileOffset;
+  /* write reloc table */
+  nrels = 0;
+  f = fixupList;
+  while (f != NULL) {
+    writeReloc(f);
+    f = f->next;
+  }
+  /* update file offset */
+  execHeader.nrels = nrels;
+  fileOffset += execHeader.nrels * sizeof(RelocRecord);
 }
 
 
