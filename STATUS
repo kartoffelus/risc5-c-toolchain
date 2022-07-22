@@ -18,8 +18,8 @@ Current status of development
    include			done
    asm				started
    dump				done
-   link				not yet
-   load				not yet
+   link				started
+   load				done
    mklib			not yet
 
 6) RISC5 tools
