@@ -4,7 +4,7 @@
 
 ENTRY _bcode;
 
-. = 0xC0000000;
+. = 0x000000;
 OSEG .code [APX] {
   _bcode = .;
   ISEG .code;
