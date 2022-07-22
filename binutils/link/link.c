@@ -1468,11 +1468,11 @@ void relocateModules(void) {
           }
           value >>= 2;
           break;
+#endif
         case RELOC_W32:
           method = "W32";
           mask = 0xFFFFFFFF;
           break;
-#endif
         default:
           method = "ILL";
           mask = 0;
