@@ -210,7 +210,7 @@ typedef struct {
   unsigned int sdata;		/* size of data space in file */
   unsigned int ostrs;		/* offset of string space in file */
   unsigned int sstrs;		/* size of string space in file */
-} ArchHeader;
+} LibHeader;
 
 typedef struct {
   unsigned int name;		/* offset of name in string space */
