@@ -1,0 +1,171 @@
+
+The Oberon RISC Architecture
+============================
+
+0. Overview
+-----------
+
+This document is based on Niklaus Wirth's description of his RISC
+processor [1]. We try to stay compatible to the processor described
+therein, but take the liberty to specify some aspects of the system
+in greater detail.
+
+From the viewpoint of the programmer and the compiler designer the
+computer consists of an arithmetic unit, a control unit, and a memory.
+The arithmetic unit contains 16 registers R0 - R15 and an auxiliary
+register H, with 32 bits each, as well as a set of "flag bits" which
+record properties of the results of arithmetic operations. The control
+unit consists of the program counter PC, holding the address of the
+instruction to be fetched next. The memory is byte-addressed and
+consists of 32-bit words in little-endian byte order. All word
+accesses (instruction fetch, data load/store) must be word-aligned.
+
+There are four types of instructions and thus four instruction
+formats. Register instructions operate either on registers only
+(format F0), or on a register and a constant embedded in the current
+instruction (format F1). They feed data through the arithmetic/logic
+unit. Memory instructions (format F2) load and store data from and
+to memory, either as a single byte, or as 4 bytes (a word) together.
+Device I/O is memory-mapped, i.e., the addresses of all I/O devices
+are mapped into the general address space of the computer and thus
+are accessible through memory instructions (word transfers only).
+Branch instructions (format F3) affect the program counter.
+
+
+1. Register Instructions
+------------------------
+
+Register instructions assign the result of an operation to the
+destination register R.a. The first operand is the register R.b.
+The second operand n is either register R.c (format F0) or is the
+constant imm taken from the current instruction (format F1).
+
+        4      4      4      4             12            4
+     +------+------+------+------+------+------+------+------+
+F0:  | 00u0 |  a   |  b   |  op  |         --         |  c   |
+     +------+------+------+------+------+------+------+------+
+
+        4      4      4      4             16
+     +------+------+------+------+------+------+------+------+
+F1:  | 01uv |  a   |  b   |  op  |         im                |
+     +------+------+------+------+------+------+------+------+
+
+op     instr        effect             explanation
+-----------------------------------------------------------------------
+0000   MOV a,n      R.a := n           data transfer
+0001   LSL a,b,n    R.a := R.b <- n    logical shift left by n bits
+0010   ASR a,b,n    R.a := R.b -> n    arithmetic shift right by n bits
+0011   ROR a,b,n    R.a := R.b rot n   rotate right by n bits
+0100   AND a,b,n    R.a := R.b & n     bitwise AND
+0101   ANN a,b,n    R.a := R.b & ~n    bitwise AND NOT
+0110   IOR a,b,n    R.a := R.b or n    bitwise inclusive OR
+0111   XOR a,b,n    R.a := R.b xor n   bitwise exclusive OR
+1000   ADD a,b,n    R.a := R.b + n     integer addition
+1001   SUB a,b,n    R.a := R.b - n     integer subtraction
+1010   MUL a,b,n    R.a := R.b * n     integer multiplication (1)
+1011   DIV a,b,n    R.a := R.b / n     integer division (2)
+1100   FAD a,b,n    R.a := R.b + R.c   floating-point addition
+1101   FSB a,b,n    R.a := R.b - R.c   floating-point subtraction
+1110   FML a,b,n    R.a := R.b * R.c   floating-point multiplication
+1111   FDV a,b,n    R.a := R.b / R.c   floating-point division (3)
+
+Immediate values are extended to 32 bits with 16 v-bits to the left.
+Apart from R.a these instructions also affect the flag registers N
+(negative) and Z (zero). The ADD and SUB instructions also affect
+the flags C (carry with ADD, borrow with SUB) and V (overflow).
+
+Remarks:
+(1) The upper 32 bits of the product are deposited in register H.
+(2) The remainder is deposited in register H. Integer division is
+    defined as "Euclidean division" with the following properties:
+    Let q = b / c and r = b mod c. Then b = q * c + r, 0 <= r < abs(c).
+    Quotient q as well as remainder r are undefined if c = 0. They
+    are also undefined if b = most negative number and c = -1.
+(3) The result is undefined if R.c = 0.
+
+
+2. Memory Instructions
+----------------------
+
+        4      4      4                    20
+     +------+------+------+------+------+------+------+------+
+F2:  | 10uv |  a   |  b   |                off               |
+     +------+------+------+------+------+------+------+------+
+
+uv   instr         effect                  explanation
+-----------------------------------------------------------------------
+00   LDW a,b,off   R.a := mem[R.b + off]   word from mem
+01   LDB a,b,off   R.a := mem[R.b + off]   byte from mem, zero-extended
+10   STW a,b,off   mem[R.b + off] := R.a   word from R.a
+11   STB a,b,off   mem[R.b + off] := R.a   byte from LSB of R.a
+
+The offset is interpreted as a signed 20-bit number in two's
+complement representation.
+
+
+3. Branch Instructions
+----------------------
+
+All branch instructions are formally dependent on a condition
+(but there is an "always true" condition). The branch instructions
+optionally store the current PC value ("link address" for calls).
+The branch target either is taken from a register or is computed
+from the current PC and an offset contained in the instruction.
+
+        4      4             16                   4      4
+     +------+------+------+------+------+------+------+------+
+F3:  | 110v | code |         --                | 0000 |  c   |
+     +------+------+------+------+------+------+------+------+
+
+Here u = 0, so the destination address is taken from register R.c.
+
+        4      4             24
+     +------+------+------+------+------+------+------+------+
+F3:  | 111v | code |         off                             |
+     +------+------+------+------+------+------+------+------+
+
+Here u = 1, so the destination address is PC + (1 + off) * 4.
+The offset is interpreted as a signed 24-bit number in two's
+complement representation.
+
+In both cases,
+if v = 0:  Bcc dest      link address PC + 4 is not deposited
+if v = 1:  Ccc dest      link address PC + 4 is deposited in R15
+
+     code    cc   condition              flags
+     ----------------------------------------------
+     0000    MI   negative (minus)       N
+     0001    EQ   equal (zero)           Z
+     0010    CS   carry set (lower)      C
+     0011    VS   overflow set           V
+     0100    LS   lower or same          C|Z
+     0101    LT   less than              N^V
+     0110    LE   less or equal          (N^V)|Z
+     0111         always                 true
+     1000    PL   positive (plus)        ~N
+     1001    NE   not equal (not zero)   ~Z
+     1010    CC   carry clear            ~C
+     1011    VC   overflow clear         ~V
+     1100    HI   higher                 ~(C|Z)
+     1101    GE   greater or equal       ~(N^V)
+     1110    GT   greater than           ~((N^V)|Z)
+     1111    NVR  never                  false
+
+
+4. Interrupts
+-------------
+
+t.b.s.
+
+
+5. Devices
+----------
+
+t.b.s.
+
+
+References
+----------
+
+[1] Wirth, Niklaus: The RISC Architecture
+
