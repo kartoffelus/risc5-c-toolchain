@@ -1420,12 +1420,12 @@ void relocateModules(void) {
       }
       value = base + rel->add;
       switch (rel->typ & ~RELOC_SYM) {
-#if 0
         case RELOC_H16:
           method = "H16";
           mask = 0x0000FFFF;
           value >>= 16;
           break;
+#if 0
         case RELOC_L16:
           method = "L16";
           mask = 0x0000FFFF;
