@@ -1425,11 +1425,15 @@ void relocateModules(void) {
           mask = 0x0000FFFF;
           value >>= 16;
           break;
-#if 0
         case RELOC_L16:
           method = "L16";
           mask = 0x0000FFFF;
+          if ((value & 0xFFFF0000) == 0xFFFF0000) {
+            /* set v-bit */
+            data |= 0x10000000;
+          }
           break;
+#if 0
         case RELOC_R16:
           method = "R16";
           mask = 0x0000FFFF;
