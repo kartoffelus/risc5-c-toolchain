@@ -55,7 +55,7 @@
 
 
 #define OP_MOV		0x00000000
-#define OP_MOVH		0x20000000
+#define OP_MOVH		0x60000000
 #define OP_GETH		0x20000000
 #define OP_GETF		0x30000000
 
@@ -1180,7 +1180,7 @@ Value parseShiftExpression(void) {
       if (v1.sym != NULL || v2.sym != NULL) {
         error("shifting of symbols not supported, line %d", lineno);
       }
-      v1.con <<= v2.con;
+      v1.con = (unsigned) v1.con << v2.con;
     } else
     if (token == TOK_RSHIFT) {
       getToken();
@@ -1188,7 +1188,7 @@ Value parseShiftExpression(void) {
       if (v1.sym != NULL || v2.sym != NULL) {
         error("shifting of symbols not supported, line %d", lineno);
       }
-      v1.con >>= v2.con;
+      v1.con = (unsigned) v1.con >> v2.con;
     }
   }
   return v1;
@@ -1269,7 +1269,21 @@ void format_0(unsigned int code) {
  * ATTENTION: high-order 16 bits encoded in instruction
  */
 void format_1(unsigned int code) {
-  error("format_1() not implemented yet");
+  int reg;
+  Value v;
+
+  expect(TOK_REGISTER);
+  reg = tokenvalNumber;
+  getToken();
+  expect(TOK_COMMA);
+  getToken();
+  v = parseExpression();
+  if (v.sym == NULL) {
+    emitWord(code | (reg << 24) | ((unsigned) v.con >> 16));
+  } else {
+    addFixup(currSeg, segPtr[currSeg], RELOC_H16, v.sym, v.con);
+    emitWord(code | (reg << 24));
+  }
 }
 
 
