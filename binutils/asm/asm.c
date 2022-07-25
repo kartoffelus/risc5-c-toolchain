@@ -1260,7 +1260,36 @@ Value parseExpression(void) {
  * format_0 operands: register, register or immediate
  */
 void format_0(unsigned int code) {
-  error("format_0() not implemented yet");
+  int reg1;
+  int reg2;
+  Value v;
+  unsigned int imm;
+
+  expect(TOK_REGISTER);
+  reg1 = tokenvalNumber;
+  getToken();
+  expect(TOK_COMMA);
+  getToken();
+  if (token == TOK_REGISTER) {
+    reg2 = tokenvalNumber;
+    getToken();
+    emitWord(code | (reg1 << 24) | reg2);
+  } else {
+    v = parseExpression();
+    imm = (unsigned) v.con;
+    /* set F1-bit */
+    code |= 0x40000000;
+    if (v.sym == NULL) {
+      if ((imm & 0xFFFF0000) == 0xFFFF0000) {
+        /* set v-bit */
+        code |= 0x10000000;
+      }
+      emitWord(code | (reg1 << 24) | (imm & 0x0000FFFF));
+    } else {
+      addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
+      emitWord(code | (reg1 << 24));
+    }
+  }
 }
 
 
@@ -1271,6 +1300,7 @@ void format_0(unsigned int code) {
 void format_1(unsigned int code) {
   int reg;
   Value v;
+  unsigned int imm;
 
   expect(TOK_REGISTER);
   reg = tokenvalNumber;
@@ -1278,8 +1308,9 @@ void format_1(unsigned int code) {
   expect(TOK_COMMA);
   getToken();
   v = parseExpression();
+  imm = (unsigned) v.con;
   if (v.sym == NULL) {
-    emitWord(code | (reg << 24) | ((unsigned) v.con >> 16));
+    emitWord(code | (reg << 24) | (imm >> 16));
   } else {
     addFixup(currSeg, segPtr[currSeg], RELOC_H16, v.sym, v.con);
     emitWord(code | (reg << 24));
@@ -1307,6 +1338,8 @@ void format_3(unsigned int code) {
   int reg1;
   int reg2;
   int reg3;
+  Value v;
+  unsigned int imm;
 
   expect(TOK_REGISTER);
   reg1 = tokenvalNumber;
@@ -1323,21 +1356,20 @@ void format_3(unsigned int code) {
     getToken();
     emitWord(code | (reg1 << 24) | (reg2 << 20) | reg3);
   } else {
-    error("format_3(reg, reg, imm) not implemented yet");
-#if 0
     v = parseExpression();
-    imm = getValue(FIXUP_IMMEDIATE);
-    if ((imm >> 16) == 0x0000) {
-      emitWord(code | (4 << 28) | (reg1 << 24) |
-               (reg2 << 20) | (imm & 0x0000FFFF));
-    } else
-    if ((imm >> 16) == 0xFFFF) {
-      emitWord(code | (5 << 28) | (reg1 << 24) |
-               (reg2 << 20) | (imm & 0x0000FFFF));
+    imm = (unsigned) v.con;
+    /* set F1-bit */
+    code |= 0x40000000;
+    if (v.sym == NULL) {
+      if ((imm & 0xFFFF0000) == 0xFFFF0000) {
+        /* set v-bit */
+        code |= 0x10000000;
+      }
+      emitWord(code | (reg1 << 24) | (reg2 << 20) | (imm & 0x0000FFFF));
     } else {
-      error("illegal immediate value in line %d", lineno);
+      addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
+      emitWord(code | (reg1 << 24) | (reg2 << 20));
     }
-#endif
   }
 }
 
