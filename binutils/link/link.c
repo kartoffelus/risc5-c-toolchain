@@ -1433,10 +1433,9 @@ void relocateModules(void) {
             data |= 0x10000000;
           }
           break;
-#if 0
-        case RELOC_R16:
-          method = "R16";
-          mask = 0x0000FFFF;
+        case RELOC_R24:
+          method = "R24";
+          mask = 0x00FFFFFF;
           value -= addr + 4;
           if (value & 3) {
             warning("module %s, segment %s, offset 0x%08X\n"
@@ -1444,35 +1443,9 @@ void relocateModules(void) {
                     "branch distance is not a multiple of 4",
                     mod->name, mod->strs + seg->name, rel->loc);
           }
-          if (((value >> 18) & 0x3FFF) != 0x0000 &&
-              ((value >> 18) & 0x3FFF) != 0x3FFF) {
-            warning("module %s, segment %s, offset 0x%08X\n"
-                    "         "
-                    "branch target address out of reach",
-                    mod->name, mod->strs + seg->name, rel->loc);
-          }
+          /* branch target is never out of reach */
           value >>= 2;
           break;
-        case RELOC_R26:
-          method = "R26";
-          mask = 0x03FFFFFF;
-          value -= addr + 4;
-          if (value & 3) {
-            warning("module %s, segment %s, offset 0x%08X\n"
-                    "         "
-                    "jump distance is not a multiple of 4",
-                    mod->name, mod->strs + seg->name, rel->loc);
-          }
-          if (((value >> 28) & 0x0F) != 0x00 &&
-              ((value >> 28) & 0x0F) != 0x0F) {
-            warning("module %s, segment %s, offset 0x%08X\n"
-                    "         "
-                    "jump target address out of reach",
-                    mod->name, mod->strs + seg->name, rel->loc);
-          }
-          value >>= 2;
-          break;
-#endif
         case RELOC_W32:
           method = "W32";
           mask = 0xFFFFFFFF;
