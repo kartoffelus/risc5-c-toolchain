@@ -1433,9 +1433,9 @@ void relocateModules(void) {
             data |= 0x10000000;
           }
           break;
-        case RELOC_R24:
-          method = "R24";
-          mask = 0x00FFFFFF;
+        case RELOC_R22:
+          method = "R22";
+          mask = 0x003FFFFF;
           value -= addr + 4;
           if (value & 3) {
             warning("module %s, segment %s, offset 0x%08X\n"

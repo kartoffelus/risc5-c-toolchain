@@ -330,7 +330,7 @@ char *segName(int segment) {
 #define H16_NAME	"H16"
 #define L16_NAME	"L16"
 #define L20_NAME	"L20"
-#define R24_NAME	"R24"
+#define R22_NAME	"R22"
 #define W32_NAME	"W32"
 
 
@@ -347,8 +347,8 @@ char *methodName(int method) {
     case RELOC_L20:
       name = L20_NAME;
       break;
-    case RELOC_R24:
-      name = R24_NAME;
+    case RELOC_R22:
+      name = R22_NAME;
       break;
     case RELOC_W32:
       name = W32_NAME;
@@ -1421,7 +1421,7 @@ void format_6(unsigned int code) {
       off = (v.con - ((signed) segPtr[currSeg] + 4)) / 4;
       emitWord(code | (off & 0x003FFFFF));
     } else {
-      addFixup(currSeg, segPtr[currSeg], RELOC_R24, v.sym, v.con);
+      addFixup(currSeg, segPtr[currSeg], RELOC_R22, v.sym, v.con);
       emitWord(code);
     }
   }
