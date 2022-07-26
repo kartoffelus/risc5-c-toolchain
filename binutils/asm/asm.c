@@ -209,6 +209,17 @@ void error(char *fmt, ...) {
 }
 
 
+void warning(char *fmt, ...) {
+  va_list ap;
+
+  va_start(ap, fmt);
+  fprintf(stderr, "Warning: ");
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  va_end(ap);
+}
+
+
 void *memAlloc(unsigned int size) {
   void *p;
 
@@ -1397,7 +1408,32 @@ void format_4(unsigned int code) {
  * format_5 operands: register, register, offset
  */
 void format_5(unsigned int code) {
-  error("format_5() not implemented yet");
+  int reg1;
+  int reg2;
+  Value v;
+  int off;
+
+  expect(TOK_REGISTER);
+  reg1 = tokenvalNumber;
+  getToken();
+  expect(TOK_COMMA);
+  getToken();
+  expect(TOK_REGISTER);
+  reg2 = tokenvalNumber;
+  getToken();
+  expect(TOK_COMMA);
+  getToken();
+  v = parseExpression();
+  off = v.con;
+  if (v.sym == NULL) {
+    if (off < -(1 << 19) || off >= (1 << 19)) {
+      error("offset out of bounds in line %d", lineno);
+    }
+    emitWord(code | (reg1 << 24) | (reg2 << 20) | (off & 0x000FFFFF));
+  } else {
+    addFixup(currSeg, segPtr[currSeg], RELOC_L20, v.sym, v.con);
+    emitWord(code | (reg1 << 24) | (reg2 << 20));
+  }
 }
 
 
@@ -1417,8 +1453,13 @@ void format_6(unsigned int code) {
     /* set u-bit */
     code |= 0x20000000;
     v = parseExpression();
+    off = v.con;
     if (v.sym == NULL) {
-      off = (v.con - ((signed) segPtr[currSeg] + 4)) / 4;
+      off -= segPtr[currSeg] + 4;
+      if (off & 3) {
+        warning("branch distance is not a multiple of 4 in line %d", lineno);
+      }
+      off >>= 2;
       emitWord(code | (off & 0x003FFFFF));
     } else {
       addFixup(currSeg, segPtr[currSeg], RELOC_R22, v.sym, v.con);
