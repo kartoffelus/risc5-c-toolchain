@@ -1433,6 +1433,16 @@ void relocateModules(void) {
             data |= 0x10000000;
           }
           break;
+        case RELOC_L20:
+          method = "L20";
+          mask = 0x000FFFFF;
+          if ((int) value < -(1 << 19) || (int) value >= (1 << 19)) {
+            error("module %s, segment %s, offset 0x%08X\n"
+                  "         "
+                  "offset out of bounds",
+                  mod->name, mod->strs + seg->name, rel->loc);
+          }
+          break;
         case RELOC_R22:
           method = "R22";
           mask = 0x003FFFFF;
