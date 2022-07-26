@@ -1405,7 +1405,26 @@ void format_5(unsigned int code) {
  * format_6 operand: register or target address
  */
 void format_6(unsigned int code) {
-  error("format_6() not implemented yet");
+  int reg;
+  Value v;
+  unsigned int off;
+
+  if (token == TOK_REGISTER) {
+    reg = tokenvalNumber;
+    getToken();
+    emitWord(code | reg);
+  } else {
+    /* set u-bit */
+    code |= 0x20000000;
+    v = parseExpression();
+    if (v.sym == NULL) {
+      off = (v.con - ((signed) segPtr[currSeg] + 4)) / 4;
+      emitWord(code | (off & 0x003FFFFF));
+    } else {
+      addFixup(currSeg, segPtr[currSeg], RELOC_R24, v.sym, v.con);
+      emitWord(code);
+    }
+  }
 }
 
 
