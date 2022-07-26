@@ -1288,7 +1288,7 @@ void format_0(unsigned int code) {
   } else {
     v = parseExpression();
     imm = (unsigned) v.con;
-    /* set F1-bit */
+    /* set q-bit */
     code |= 0x40000000;
     if (v.sym == NULL) {
       if ((imm & 0xFFFF0000) == 0xFFFF0000) {
@@ -1369,7 +1369,7 @@ void format_3(unsigned int code) {
   } else {
     v = parseExpression();
     imm = (unsigned) v.con;
-    /* set F1-bit */
+    /* set q-bit */
     code |= 0x40000000;
     if (v.sym == NULL) {
       if ((imm & 0xFFFF0000) == 0xFFFF0000) {
