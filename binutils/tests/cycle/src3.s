@@ -1,0 +1,7 @@
+	.CODE
+	.GLOBAL	func
+	.GLOBAL	call
+	.WORD	0x11111111
+	.WORD	0x22222222
+	.WORD	0x33333333
+func:	.WORD	call
