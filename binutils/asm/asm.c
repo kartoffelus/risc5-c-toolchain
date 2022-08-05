@@ -276,34 +276,6 @@ void conv4FromNativeToTarget(unsigned char *p) {
 }
 
 
-unsigned short read2FromTarget(unsigned char *p) {
-  return (unsigned short) p[0] << 0 |
-         (unsigned short) p[1] << 8;
-}
-
-
-void write2ToTarget(unsigned char *p, unsigned short data) {
-  p[0] = data >> 0;
-  p[1] = data >> 8;
-}
-
-
-void conv2FromTargetToNative(unsigned char *p) {
-  unsigned short data;
-
-  data = read2FromTarget(p);
-  * (unsigned short *) p = data;
-}
-
-
-void conv2FromNativeToTarget(unsigned char *p) {
-  unsigned short data;
-
-  data = * (unsigned short *) p;
-  write2ToTarget(p, data);
-}
-
-
 /**************************************************************/
 
 /* other helper functions */
@@ -571,15 +543,6 @@ void putCodeWord(unsigned int data) {
 }
 
 
-void putCodeHalf(unsigned short data) {
-  if (codeSize + 2 > codeMaxSize) {
-    growCodeArray();
-  }
-  write2ToTarget(codeArray + codeSize, data);
-  codeSize += 2;
-}
-
-
 void putCodeByte(unsigned char data) {
   if (codeSize + 1 > codeMaxSize) {
     growCodeArray();
@@ -645,15 +608,6 @@ void putDataWord(unsigned int data) {
 }
 
 
-void putDataHalf(unsigned short data) {
-  if (dataSize + 2 > dataMaxSize) {
-    growDataArray();
-  }
-  write2ToTarget(dataArray + dataSize, data);
-  dataSize += 2;
-}
-
-
 void putDataByte(unsigned char data) {
   if (dataSize + 1 > dataMaxSize) {
     growDataArray();
@@ -699,31 +653,6 @@ void emitWord(unsigned int word) {
       break;
   }
   segPtr[currSeg] += 4;
-}
-
-
-void emitHalf(unsigned int half) {
-  half &= 0x0000FFFF;
-  if (debugEmit) {
-    printf("DEBUG: half @ segment = %s, offset = %08X",
-           segName(currSeg), segPtr[currSeg]);
-    printf(", value = %02X%02X\n",
-           (half >> 8) & 0xFF, half & 0xFF);
-  }
-  switch (currSeg) {
-    case SEG_ABS:
-      error("illegal segment in emitHalf()");
-      break;
-    case SEG_CODE:
-      putCodeHalf(half);
-      break;
-    case SEG_DATA:
-      putDataHalf(half);
-      break;
-    case SEG_BSS:
-      break;
-  }
-  segPtr[currSeg] += 2;
 }
 
 
@@ -1607,27 +1536,6 @@ void dotWord(unsigned int code) {
 
 
 /*
- * .HALF <comma-separated list of values>
- * deposit the 16-bit values in memory
- */
-void dotHalf(unsigned int code) {
-  Value v;
-
-  while (1) {
-    v = parseExpression();
-    if (v.sym != NULL) {
-      error("absolute expression expected in line %d", lineno);
-    }
-    emitHalf(v.con);
-    if (token != TOK_COMMA) {
-      break;
-    }
-    getToken();
-  }
-}
-
-
-/*
  * .BYTE <comma-separated list of values>
  * deposit the 8-bit values in memory
  * strings are stored without a trailing zero
@@ -1783,7 +1691,6 @@ Instr instrTable[] = {
   { ".ALIGN",  dotAlign,  0		},
   { ".SPACE",  dotSpace,  0		},
   { ".WORD",   dotWord,   0		},
-  { ".HALF",   dotHalf,   0		},
   { ".BYTE",   dotByte,   0		},
   { ".SET",    dotSet,    0		},
 };
