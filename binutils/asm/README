@@ -6,9 +6,11 @@ General
 -------
 
 The RISC5 assembler converts a program written in assembler source
-into a sequence of words, which represent the memory image of the
-program. Assembler source is line-oriented. Each line consists
-of an optional label definition (an identifier directly followed
+to an "object program", which can be further processed by the linker
+and other programs of the toolchain.
+
+RISC5 assembler source is line-oriented. Each line consists of
+an optional label definition (an identifier directly followed
 by a colon), an optional single instruction (instruction name
 followed possibly by operands), and an optional comment. Empty
 lines and lines with more than one label are permitted. Blanks,
@@ -31,13 +33,18 @@ count as letters. Uppercase and lowercase letters are distinct.
 
 The value of a label is its address in memory (the "current PC").
 This address is automatically maintained by the assembler, and
-starts at 0 when assembly begins. The current PC can be set by
-the directive .LOC (see below).
+starts at 0 when assembly begins. The current PC is always relative
+to the start of the "current segment", which must be one of code,
+data, or bss (code being the default). There exist directives to
+choose the current segment for the instructions following the
+directive (see .CODE, .DATA, and .BSS below).
 
 Branches and calls need a target address. It is usually given
 as a label (without the trailing colon), which can be defined
 anywhere in the program text (with the trailing colon), or may
-be given numerically, e.g. by a defined constant.
+be given numerically, e.g. by a defined constant. The value of
+a label can also come from a definition in another module, if
+imported (see the directive .GLOBAL below).
 
 
 Machine Instructions
@@ -46,10 +53,10 @@ Machine Instructions
 //
 // register data move instructions
 //
-  MOV	<r1>,<r2 or imm>	// move:      r1 <- (r2 or imm)
-  MOVH	<r1>,<imm>		// move high: r1 <- (imm >> 16) << 16
-  GETH	<r1>			// get H reg: r1 <- H
-  GETF	<r1>			// get F reg: r1 <- [N,Z,C,V,I,CPU_ID]
+  MOV	<r1>,<r2 or imm>	// move:            r1 <- (r2 or imm)
+  MOVH	<r1>,<imm>		// move high:       r1 <- (imm >> 16) << 16
+  PUTS	<r1>,<sr>		// put special reg: sr <- r1
+  GETS	<r1>,<sr>		// get special reg: r1 <- sr
 
 //
 // shift instructions
@@ -154,25 +161,36 @@ Assembler Directives
 These "pseudo instructions" generate no machine instructions,
 but let the assembler perform certain actions.
 
- .WORD	<list of values>	// deposit the values given in the
-				// comma-separated list as words in
-				// memory, starting at the current PC
+ .CODE				// set the current segment to code
 
- .BYTE	<list of values>	// deposit the values given in the
-				// comma-separated list as bytes in
-				// memory, starting at the current PC
-				// as a special case, a "value" may be
-				// a string, whose bytes are placed in
-				// memory, with no zero byte appended
+ .DATA				// set the current segment to data
 
- .SET	<name>,<n>		// define <name> to denote the value <n>
+ .BSS				// set the current segment to bss
 
- .LOC	<n>			// set the current PC to <n>
+ .GLOBAL <list of names>	// if a name is defined in this module:
+				//   export definition to other modules
+				// if a name is not defined in this module:
+				//   import definition from another module
+				// (the linker will detect names that are
+				// not defined in any of the linked modules)
 
- .SPACE	<n>			// deposit <n> zero bytes in memory,
-				// starting at the current PC
+ .ALIGN	 <n>			// deposit zero-bytes in the current segment
+				// until the current PC is a multiple of n
+				// (n must be a power of 2)
 
- .ALIGN				// deposit 0..3 zero bytes in memory
-				// in order to align the current PC
-				// on a word boundary
+ .SPACE	 <n>			// deposit <n> zero-bytes in the current
+				// segment, starting at the current PC
+
+ .WORD	 <list of values>	// deposit the values given in the list as
+				// words in the current segment, starting
+				// at the current PC
+
+ .BYTE	 <list of values>	// deposit the values given in the list as
+				// bytes in the current segment, starting
+				// at the current PC
+				// as a special case, a "value" may be a
+				// string, whose bytes (without the trailing
+				// zero) are placed in the current segment
+
+ .SET	 <name>,<n>		// define <name> to denote the value <n>
 

@@ -56,8 +56,8 @@
 
 #define OP_MOV		0x00000000
 #define OP_MOVH		0x60000000
-#define OP_GETH		0x20000000
-#define OP_GETF		0x30000000
+#define OP_PUTS		0x20000000
+#define OP_GETS		0x30000000
 
 #define OP_LSL		0x00010000
 #define OP_ASR		0x00020000
@@ -1259,15 +1259,27 @@ void format_1(unsigned int code) {
 
 
 /*
- * format_2 operand: register
+ * format_2 operands: register, special register number
  */
 void format_2(unsigned int code) {
   int reg;
+  Value v;
+  unsigned int imm;
 
   expect(TOK_REGISTER);
   reg = tokenvalNumber;
   getToken();
-  emitWord(code | (reg << 24));
+  expect(TOK_COMMA);
+  getToken();
+  v = parseExpression();
+  if (v.sym != NULL) {
+    error("absolute expression expected in line %d", lineno);
+  }
+  imm = (unsigned) v.con;
+  if (imm > 15) {
+    error("special register number out of bounds in line %d", lineno);
+  }
+  emitWord(code | (reg << 24) | imm);
 }
 
 
@@ -1612,8 +1624,8 @@ Instr instrTable[] = {
   /* register data move */
   { "MOV",     format_0,  OP_MOV	},
   { "MOVH",    format_1,  OP_MOVH	},
-  { "GETH",    format_2,  OP_GETH	},
-  { "GETF",    format_2,  OP_GETF	},
+  { "PUTS",    format_2,  OP_PUTS	},
+  { "GETS",    format_2,  OP_GETS	},
   /* shift */
   { "LSL",     format_3,  OP_LSL	},
   { "ASR",     format_3,  OP_ASR	},
