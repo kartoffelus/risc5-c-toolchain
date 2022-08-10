@@ -1469,13 +1469,13 @@ static void disasmF0(Word instr) {
       /* u = 0: move from any general register */
       sprintf(instrBuffer, "%-7s R%d,R%d", regOps[op], a, c);
     } else {
-      /* u = 1: move from special register */
+      /* u = 1: move to/from special register */
       if (((instr >> 28) & 1) == 0) {
-        /* v = 0: get H register */
-        sprintf(instrBuffer, "%-7s R%d", "GETH", a);
+        /* v = 0: put special register */
+        sprintf(instrBuffer, "%-7s R%d,%d", "PUTS", a, c);
       } else {
-        /* v = 1: get flag values and CPU ID */
-        sprintf(instrBuffer, "%-7s R%d", "GETF", a);
+        /* v = 1: get special register */
+        sprintf(instrBuffer, "%-7s R%d,%d", "GETS", a, c);
       }
     }
   } else {
