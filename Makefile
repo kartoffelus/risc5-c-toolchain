@@ -6,7 +6,7 @@ VERSION = 0.0
 
 BUILD = `pwd`/build
 
-DIRS = tools binutils sim fpga doc
+DIRS = sim sercomm tools binutils boot stdalone fpga doc
 
 all:		compiler
 		for i in $(DIRS) ; do \
