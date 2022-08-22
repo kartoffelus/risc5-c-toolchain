@@ -4,15 +4,21 @@
 
 BUILD = ../../build
 
-all:		blink.bin
+all:		blink.mem
 
-install:	blink.bin
+install:	blink.mem
 
-run-sim:
+run-from-ram:	blink.mem
+		$(BUILD)/bin/sim -r blink.mem -s 003
+
+run-from-ser:	$(BUILD)/prom/boot.mem
 		$(BUILD)/bin/sim -p $(BUILD)/prom/boot.mem -s 003
 
-run-blink:	blink.bin
+send-to-ser:	blink.bin
 		$(BUILD)/bin/sercomm blink.bin
+
+blink.mem:	blink.bin
+		$(BUILD)/bin/bin2mem blink.bin blink.mem
 
 blink.bin:	blink
 		$(BUILD)/bin/load blink blink.bin
@@ -24,5 +30,5 @@ blink.o:	blink.s
 		$(BUILD)/bin/asm -o blink.o blink.s
 
 clean:
-		rm -f *~ blink.o blink blink.bin
+		rm -f *~ blink.o blink blink.bin blink.mem
 		rm -f serial.dev
