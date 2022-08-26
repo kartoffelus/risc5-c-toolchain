@@ -39,6 +39,26 @@
  * caller-save registers are not preserved across procedure calls
  * callee-save registers are preserved across procedure calls
  *
+ * register usage:
+ *   R0   func return value
+ *   R1   proc/func argument
+ *   R2   proc/func argument
+ *   R3   proc/func argument
+ *   R4   register variable  (callee-save)
+ *   R5   register variable  (callee-save)
+ *   R6   register variable  (callee-save)
+ *   R7   register variable  (callee-save)
+ *   R8   temporary register (caller-save)
+ *   R9   temporary register (caller-save)
+ *   R10  temporary register (caller-save)
+ *   R11  temporary register (caller-save)
+ *   R12  reserved for assembler
+ *   R13  reserved for OS kernel
+ *   R14  stack pointer
+ *   R15  proc/func return address
+ * caller-save registers are not preserved across procedure calls
+ * callee-save registers are preserved across procedure calls
+ *
  * tree grammar terminals produced by:
  *   ops c=1 s=2 i=4 l=4 h=4 f=4 d=4 x=4 p=4
  * and augmented by:
@@ -81,11 +101,11 @@ static void doarg(Node);
 static void target(Node);
 static void clobber(Node);
 
-#define INTTMP	0x0100FF00
-#define INTVAR	0x00FF0000
-#define INTRET	0x00000004
+#define INTRET	0x00000001
+#define INTVAR	0x000000F0
+#define INTTMP	0x00000F00
 
-static Symbol ireg[32];
+static Symbol ireg[16];
 static Symbol iregw;
 static Symbol blkreg;
 static int tmpregs[] = { 3, 9, 10 };
@@ -260,14 +280,14 @@ stmt:	reg			""
 acon:	con			"%0"
 acon:	ADDRGP4			"%a"
 
-addr:	ADDI4(reg,acon)		"$%0,%1"
-addr:	ADDP4(reg,acon)		"$%0,%1"
-addr:	ADDU4(reg,acon)		"$%0,%1"
+addr:	ADDI4(reg,acon)		"R%0,%1"
+addr:	ADDP4(reg,acon)		"R%0,%1"
+addr:	ADDU4(reg,acon)		"R%0,%1"
 
-addr:	acon			"$0,%0"
-addr:	reg			"$%0,0"
-addr:	ADDRFP4			"$29,%a+%F"
-addr:	ADDRLP4			"$29,%a+%F"
+addr:	acon			"%0"
+addr:	reg			"R%0,0"
+addr:	ADDRFP4			"R14,%a+%F"
+addr:	ADDRLP4			"R14,%a+%F"
 
 reg:	addr			"\tadd\t$%c,%0\n"	1
 
@@ -305,13 +325,13 @@ reg:	CVUI4(INDIRU2(addr))	"\tldhu\t$%c,%0\n"	1
 rc:	con			"%0"
 rc:	reg			"$%0"
 
-reg:	ADDI4(reg,rc)		"\tadd\t$%c,$%0,%1\n"	1
-reg:	ADDP4(reg,rc)		"\tadd\t$%c,$%0,%1\n"	1
-reg:	ADDU4(reg,rc)		"\tadd\t$%c,$%0,%1\n"	1
-reg:	SUBI4(reg,rc)		"\tsub\t$%c,$%0,%1\n"	1
-reg:	SUBP4(reg,rc)		"\tsub\t$%c,$%0,%1\n"	1
-reg:	SUBU4(reg,rc)		"\tsub\t$%c,$%0,%1\n"	1
-reg:	NEGI4(reg)		"\tsub\t$%c,$0,$%0\n"	1
+reg:	ADDI4(reg,rc)		"\tADD\t$%c,$%0,%1\n"	1
+reg:	ADDP4(reg,rc)		"\tADD\t$%c,$%0,%1\n"	1
+reg:	ADDU4(reg,rc)		"\tADD\t$%c,$%0,%1\n"	1
+reg:	SUBI4(reg,rc)		"\tSUB\t$%c,$%0,%1\n"	1
+reg:	SUBP4(reg,rc)		"\tSUB\t$%c,$%0,%1\n"	1
+reg:	SUBU4(reg,rc)		"\tSUB\t$%c,$%0,%1\n"	1
+reg:	NEGI4(reg)		"\tSUB\t$%c,$0,$%0\n"	1
 
 reg:	MULI4(reg,rc)		"\tmul\t$%c,$%0,%1\n"	1
 reg:	MULU4(reg,rc)		"\tmulu\t$%c,$%0,%1\n"	1
@@ -337,13 +357,13 @@ reg:	LSHU4(reg,rc5)		"\tsll\t$%c,$%0,%1\n"	1
 reg:	RSHI4(reg,rc5)		"\tsar\t$%c,$%0,%1\n"	1
 reg:	RSHU4(reg,rc5)		"\tslr\t$%c,$%0,%1\n"	1
 
-reg:	LOADI1(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
-reg:	LOADI2(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
-reg:	LOADI4(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
-reg:	LOADP4(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
-reg:	LOADU1(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
-reg:	LOADU2(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
-reg:	LOADU4(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
+reg:	LOADI1(reg)		"\tMOV\tR%c,R%0\n"	move(a)
+reg:	LOADI2(reg)		"\tMOV\tR%c,R%0\n"	move(a)
+reg:	LOADI4(reg)		"\tMOV\tR%c,R%0\n"	move(a)
+reg:	LOADP4(reg)		"\tMOV\tR%c,R%0\n"	move(a)
+reg:	LOADU1(reg)		"\tMOV\tR%c,R%0\n"	move(a)
+reg:	LOADU2(reg)		"\tMOV\tR%c,R%0\n"	move(a)
+reg:	LOADU4(reg)		"\tMOV\tR%c,R%0\n"	move(a)
 
 reg:	CVII4(reg)  "\tsll\t$%c,$%0,8*(4-%a)\n\tsar\t$%c,$%c,8*(4-%a)\n"  2
 reg:	CVUI4(reg)  "\tand\t$%c,$%0,(1<<(8*%a))-1\n"	1
@@ -366,10 +386,10 @@ stmt:	GEU4(reg,reg)		"\tbgeu\t$%0,$%1,%a\n"	1
 stmt:	GTI4(reg,reg)		"\tbgt\t$%0,$%1,%a\n"	1
 stmt:	GTU4(reg,reg)		"\tbgtu\t$%0,$%1,%a\n"	1
 
-reg:	CALLI4(ar)		"\tjal\t%0\n"		1
-reg:	CALLP4(ar)		"\tjal\t%0\n"		1
-reg:	CALLU4(ar)		"\tjal\t%0\n"		1
-stmt:	CALLV(ar)		"\tjal\t%0\n"		1
+reg:	CALLI4(ar)		"\tC\t%0\n"		1
+reg:	CALLP4(ar)		"\tC\t%0\n"		1
+reg:	CALLU4(ar)		"\tC\t%0\n"		1
+stmt:	CALLV(ar)		"\tC\t%0\n"		1
 
 ar:	ADDRGP4			"%a"
 ar:	reg			"$%0"
@@ -428,7 +448,7 @@ static void address(Symbol s1, Symbol s2, long n) {
 
 
 static void defaddress(Symbol s) {
-  print("\t.word\t%s\n", s->x.name);
+  print("\t.WORD\t%s\n", s->x.name);
 }
 
 
@@ -439,27 +459,27 @@ static void defconst(int suffix, int size, Value v) {
 
   if (suffix == F && size == 4) {
     f = v.d;
-    print("\t.word\t0x%x\n", * (unsigned *) &f);
+    print("\t.WORD\t0x%x\n", * (unsigned *) &f);
   } else
   if (suffix == F && size == 8) {
     d = v.d;
     p = (unsigned *) &d;
-    print("\t.word\t0x%x\n", p[swap]);
-    print("\t.word\t0x%x\n", p[1 - swap]);
+    print("\t.WORD\t0x%x\n", p[swap]);
+    print("\t.WORD\t0x%x\n", p[1 - swap]);
   } else
   if (suffix == P) {
-    print("\t.word\t0x%X\n", (unsigned long) v.p);
+    print("\t.WORD\t0x%X\n", (unsigned long) v.p);
   } else
   if (size == 1) {
-    print("\t.byte\t0x%x\n",
+    print("\t.BYTE\t0x%x\n",
           (unsigned) ((unsigned char) (suffix == I ? v.i : v.u)));
   } else
   if (size == 2) {
-    print("\t.half\t0x%x\n",
+    print("\t.HALF\t0x%x\n",
           (unsigned) ((unsigned short) (suffix == I ? v.i : v.u)));
   } else
   if (size == 4) {
-    print("\t.word\t0x%x\n", (unsigned) (suffix == I ? v.i : v.u));
+    print("\t.WORD\t0x%x\n", (unsigned) (suffix == I ? v.i : v.u));
   }
 }
 
@@ -468,7 +488,7 @@ static void defstring(int n, char *str) {
   char *s;
 
   for (s = str; s < str + n; s++) {
-    print("\t.byte\t0x%x\n", (*s) & 0xFF);
+    print("\t.BYTE\t0x%x\n", (*s) & 0xFF);
   }
 }
 
@@ -487,7 +507,7 @@ static void defsymbol(Symbol s) {
 
 
 static void export(Symbol s) {
-  print("\t.export\t%s\n", s->name);
+  print("\t.GLOBAL\t%s\n", s->name);
 }
 
 
@@ -506,10 +526,10 @@ static int bitcount(unsigned mask) {
 
 static Symbol argreg(int argno, int offset, int ty, int sz, int ty0) {
   assert((offset & 3) == 0);
-  if (offset > 12) {
+  if (offset > 8) {
     return NULL;
   }
-  return ireg[(offset / 4) + 4];
+  return ireg[(offset / 4) + 1];
 }
 
 
@@ -571,15 +591,15 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
   sizeisave = 4 * bitcount(usedmask[IREG]);
   framesize = roundup(maxargoffset + sizeisave + maxoffset, 16);
   segment(CODE);
-  print("\t.align\t4\n");
+  print("\t.ALIGN\t4\n");
   print("%s:\n", f->x.name);
   if (framesize > 0) {
-    print("\tsub\t$29,$29,%d\n", framesize);
+    print("\tSUB\tR14,R14,%d\n", framesize);
   }
   saved = maxargoffset;
   for (i = 16; i < 32; i++) {
     if (usedmask[IREG] & (1 << i)) {
-      print("\tstw\t$%d,$29,%d\n", i, saved);
+      print("\tstw\t$%d,R14,%d\n", i, saved);
       saved += 4;
     }
   }
@@ -596,13 +616,13 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
       if (out->sclass == REGISTER &&
           (isint(out->type) || out->type == in->type)) {
         int outn = out->x.regnode->number;
-        print("\tadd\t$%d,$0,$%d\n", outn, rn);
+        print("\tMOV\t$%d,$%d\n", outn, rn);
       } else {
         int off = in->x.offset + framesize;
         int n = (in->type->size + 3) / 4;
         int i;
         for (i = rn; i < rn + n && i <= 7; i++) {
-          print("\tstw\t$%d,$29,%d\n", i, off + (i - rn) * 4);
+          print("\tstw\t$%d,R14,%d\n", i, off + (i - rn) * 4);
         }
       }
     }
@@ -610,37 +630,37 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
   if (variadic(f->type) && callee[i - 1] != NULL) {
     i = callee[i - 1]->x.offset + callee[i - 1]->type->size;
     for (i = roundup(i, 4)/4; i <= 3; i++) {
-      print("\tstw\t$%d,$29,%d\n", i + 4, framesize + 4 * i);
+      print("\tstw\t$%d,R14,%d\n", i + 4, framesize + 4 * i);
     }
   }
   emitcode();
   saved = maxargoffset;
   for (i = 16; i < 32; i++) {
     if (usedmask[IREG] & (1 << i)) {
-      print("\tldw\t$%d,$29,%d\n", i, saved);
+      print("\tldw\t$%d,R14,%d\n", i, saved);
       saved += 4;
     }
   }
   if (framesize > 0) {
-    print("\tadd\t$29,$29,%d\n", framesize);
+    print("\tADD\tR14,R14,%d\n", framesize);
   }
-  print("\tjr\t$31\n");
+  print("\tB\tR15\n");
   print("\n");
 }
 
 
 static void global(Symbol s) {
   if (s->type->align != 0) {
-    print("\t.align\t%d\n", s->type->align);
+    print("\t.ALIGN\t%d\n", s->type->align);
   } else {
-    print("\t.align\t%d\n", 4);
+    print("\t.ALIGN\t%d\n", 4);
   }
   print("%s:\n", s->x.name);
 }
 
 
 static void import(Symbol s) {
-  print("\t.import\t%s\n", s->name);
+  print("\t.GLOBAL\t%s\n", s->name);
 }
 
 
@@ -669,7 +689,7 @@ static void progbeg(int argc, char *argv[]) {
   setSwap();
   segment(CODE);
   parseflags(argc, argv);
-  for (i = 0; i < 32; i++) {
+  for (i = 0; i < 16; i++) {
     ireg[i] = mkreg("%d", i, 1, IREG);
   }
   iregw = mkwildcard(ireg);
@@ -708,13 +728,13 @@ static void segment(int n) {
   }
   switch (newSeg) {
     case CODE:
-      print("\t.code\n");
+      print("\t.CODE\n");
       break;
     case BSS:
-      print("\t.bss\n");
+      print("\t.BSS\n");
       break;
     case DATA:
-      print("\t.data\n");
+      print("\t.DATA\n");
       break;
   }
   currSeg = newSeg;
@@ -722,7 +742,7 @@ static void segment(int n) {
 
 
 static void space(int n) {
-  print("\t.space\t%d\n", n);
+  print("\t.SPACE\t%d\n", n);
 }
 
 
@@ -743,13 +763,13 @@ static Symbol rmap(int opk) {
 static void blkfetch(int size, int off, int reg, int tmp) {
   assert(size == 1 || size == 2 || size == 4);
   if (size == 1) {
-    print("\tldbu\t$%d,$%d,%d\n", tmp, reg, off);
+    print("\tLDB\tR%d,R%d,%d\n", tmp, reg, off);
   } else
   if (size == 2) {
-    print("\tldhu\t$%d,$%d,%d\n", tmp, reg, off);
+    print("\tLDH\tR%d,R%d,%d\n", tmp, reg, off);
   } else
   if (size == 4) {
-    print("\tldw\t$%d,$%d,%d\n", tmp, reg, off);
+    print("\tLDW\tR%d,R%d,%d\n", tmp, reg, off);
   }
 }
 
@@ -757,13 +777,13 @@ static void blkfetch(int size, int off, int reg, int tmp) {
 static void blkstore(int size, int off, int reg, int tmp) {
   assert(size == 1 || size == 2 || size == 4);
   if (size == 1) {
-    print("\tstb\t$%d,$%d,%d\n", tmp, reg, off);
+    print("\tSTB\tR%d,R%d,%d\n", tmp, reg, off);
   } else
   if (size == 2) {
-    print("\tsth\t$%d,$%d,%d\n", tmp, reg, off);
+    print("\tSTH\tR%d,R%d,%d\n", tmp, reg, off);
   } else
   if (size == 4) {
-    print("\tstw\t$%d,$%d,%d\n", tmp, reg, off);
+    print("\tSTW\tR%d,R%d,%d\n", tmp, reg, off);
   }
 }
 
@@ -805,7 +825,7 @@ static void emit2(Node p) {
       q = argreg(p->x.argno, p->syms[2]->u.c.v.i, ty, sz, ty0);
       src = getregnum(p->x.kids[0]);
       if (q == NULL) {
-        print("\tstw\t$%d,$29,%d\n", src, p->syms[2]->u.c.v.i);
+        print("\tstw\t$%d,R14,%d\n", src, p->syms[2]->u.c.v.i);
       }
       break;
     case ASGN+B:
@@ -824,7 +844,7 @@ static void emit2(Node p) {
       n = p->syms[2]->u.c.v.i + p->syms[0]->u.c.v.i;
       dst = p->syms[2]->u.c.v.i;
       for (; dst <= 12 && dst < n; dst += 4) {
-        print("\tldw\t$%d,$29,%d\n", (dst / 4) + 4, dst);
+        print("\tldw\t$%d,R14,%d\n", (dst / 4) + 4, dst);
       }
       break;
   }
@@ -871,7 +891,7 @@ static void target(Node p) {
     case CALL+U:
     case CALL+F:
       rtarget(p, 0, ireg[25]);
-      setreg(p, ireg[2]);
+      setreg(p, ireg[0]);
       break;
     case CALL+V:
       rtarget(p, 0, ireg[25]);
@@ -880,7 +900,7 @@ static void target(Node p) {
     case RET+P:
     case RET+U:
     case RET+F:
-      rtarget(p, 0, ireg[2]);
+      rtarget(p, 0, ireg[0]);
       break;
     case ARG+I:
     case ARG+P:
@@ -932,7 +952,7 @@ Interface risc5IR = {
   4, 4, 1,  /* long double */
   4, 4, 0,  /* T * */
   0, 1, 0,  /* struct */
-  0,        /* little_endian */
+  1,        /* little_endian */
   0,        /* mulops_calls */
   0,        /* wants_callb */
   1,        /* wants_argb */
