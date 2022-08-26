@@ -185,6 +185,10 @@ but let the assembler perform certain actions.
 				// words in the current segment, starting
 				// at the current PC
 
+ .HALF	 <list of values>	// deposit the values given in the list as
+				// halfwords in the current segment, starting
+				// at the current PC
+
  .BYTE	 <list of values>	// deposit the values given in the list as
 				// bytes in the current segment, starting
 				// at the current PC
