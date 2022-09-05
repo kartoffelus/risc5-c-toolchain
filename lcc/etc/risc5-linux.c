@@ -44,7 +44,7 @@ char *com[] = {
 };
 
 char *as[] = {
-  LCCDIR "as",
+  LCCDIR "asm",
   "-o", "$3",		/* assembler output file (object) */
   "$1",			/* other options handed through */
   "$2",			/* assembler input file (assembler) */
@@ -52,7 +52,7 @@ char *as[] = {
 };
 
 char *ld[] = {
-  LCCDIR "ld",
+  LCCDIR "link",
   "-L" LCCDIR "../lib",
   "-o", "$3",		/* linker output file (executable) */
   "$1",			/* other options handed through */
