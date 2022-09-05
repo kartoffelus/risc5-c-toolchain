@@ -17,15 +17,16 @@ B=$(BUILDDIR)/
 T=$(TSTDIR)/
 
 what:
-	-@echo make all rcc lburg cpp lcc bprint liblcc triple clean clobber
+	-@echo make all rcc lburg cpp lcc bprint ops liblcc triple clean clobber
 
-all::	rcc lburg cpp lcc bprint liblcc
+all::	rcc lburg cpp lcc bprint ops liblcc
 
 rcc:	$Brcc$E
 lburg:	$Blburg$E
 cpp:	$Bcpp$E
 lcc:	$Blcc$E
 bprint:	$Bbprint$E
+ops:	$Bops$E
 liblcc:	$Bliblcc$A
 
 RCCOBJS=$Balloc$O \
@@ -232,7 +233,7 @@ clean::		testclean
 		$(RM) $B*.ilk
 
 clobber::	clean
-		$(RM) $Brcc$E $Blburg$E $Bcpp$E $Blcc$E $Bcp$E $Bbprint$E $B*$A
+		$(RM) $Brcc$E $Blburg$E $Bcpp$E $Blcc$E $Bcp$E $Bbprint$E $Bops$E $B*$A
 		$(RM) $B*.pdb $B*.pch
 
 RCCSRCS=src/alloc.c \
