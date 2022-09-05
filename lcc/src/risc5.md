@@ -2,6 +2,9 @@
 
 /*
  * risc5.md -- RISC5 back-end specification
+ *
+ * tree grammar terminals produced by:
+ *   ops c=1 s=2 i=4 l=4 h=4 f=4 d=4 x=4 p=4
  */
 
 
@@ -20,6 +23,131 @@
 static void I(segment)(int s);
 
 %}
+
+%term CNSTF4=4113
+%term CNSTI1=1045 CNSTI2=2069 CNSTI4=4117
+%term CNSTP4=4119
+%term CNSTU1=1046 CNSTU2=2070 CNSTU4=4118
+
+%term ARGB=41
+%term ARGF4=4129
+%term ARGI4=4133
+%term ARGP4=4135
+%term ARGU4=4134
+
+%term ASGNB=57
+%term ASGNF4=4145
+%term ASGNI1=1077 ASGNI2=2101 ASGNI4=4149
+%term ASGNP4=4151
+%term ASGNU1=1078 ASGNU2=2102 ASGNU4=4150
+
+%term INDIRB=73
+%term INDIRF4=4161
+%term INDIRI1=1093 INDIRI2=2117 INDIRI4=4165
+%term INDIRP4=4167
+%term INDIRU1=1094 INDIRU2=2118 INDIRU4=4166
+
+%term CVFF4=4209
+%term CVFI4=4213
+
+%term CVIF4=4225
+%term CVII1=1157 CVII2=2181 CVII4=4229
+%term CVIU1=1158 CVIU2=2182 CVIU4=4230
+
+%term CVPU4=4246
+
+%term CVUI1=1205 CVUI2=2229 CVUI4=4277
+%term CVUP4=4279
+%term CVUU1=1206 CVUU2=2230 CVUU4=4278
+
+%term NEGF4=4289
+%term NEGI4=4293
+
+%term CALLB=217
+%term CALLF4=4305
+%term CALLI4=4309
+%term CALLP4=4311
+%term CALLU4=4310
+%term CALLV=216
+
+%term RETF4=4337
+%term RETI4=4341
+%term RETP4=4343
+%term RETU4=4342
+%term RETV=248
+
+%term ADDRGP4=4359
+
+%term ADDRFP4=4375
+
+%term ADDRLP4=4391
+
+%term ADDF4=4401
+%term ADDI4=4405
+%term ADDP4=4407
+%term ADDU4=4406
+
+%term SUBF4=4417
+%term SUBI4=4421
+%term SUBP4=4423
+%term SUBU4=4422
+
+%term LSHI4=4437
+%term LSHU4=4438
+
+%term MODI4=4453
+%term MODU4=4454
+
+%term RSHI4=4469
+%term RSHU4=4470
+
+%term BANDI4=4485
+%term BANDU4=4486
+
+%term BCOMI4=4501
+%term BCOMU4=4502
+
+%term BORI4=4517
+%term BORU4=4518
+
+%term BXORI4=4533
+%term BXORU4=4534
+
+%term DIVF4=4545
+%term DIVI4=4549
+%term DIVU4=4550
+
+%term MULF4=4561
+%term MULI4=4565
+%term MULU4=4566
+
+%term EQF4=4577
+%term EQI4=4581
+%term EQU4=4582
+
+%term GEF4=4593
+%term GEI4=4597
+%term GEU4=4598
+
+%term GTF4=4609
+%term GTI4=4613
+%term GTU4=4614
+
+%term LEF4=4625
+%term LEI4=4629
+%term LEU4=4630
+
+%term LTF4=4641
+%term LTI4=4645
+%term LTU4=4646
+
+%term NEF4=4657
+%term NEI4=4661
+%term NEU4=4662
+
+%term JUMPV=584
+
+%term LABELV=600
 
 
 %%
