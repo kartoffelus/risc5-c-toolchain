@@ -19,8 +19,14 @@
 #define RIGHT_CHILD(p)	((p)->kids[1])
 #define STATE_LABEL(p)	((p)->x.state)
 
+#define INTVAR		0x000000F0
+#define INTTMP		0x00000F00
+
+static Symbol ireg[16];
+static Symbol iregw;
 
 static void I(segment)(int s);
+static Symbol I(rmap)(int opk);
 
 %}
 
@@ -153,6 +159,9 @@ static void I(segment)(int s);
 %%
 
 
+stmt:	RETI4		"# ret\n"		1
+
+
 %%
 
 
@@ -245,11 +254,6 @@ static void I(defsymbol)(Symbol p) {
 }
 
 
-static void I(emit)(Node p) {
-  printf("// emit\n");
-}
-
-
 /*
  * void export(Symbol p) -- announce p as exported
  */
@@ -275,12 +279,6 @@ static void I(function)(Symbol f, Symbol caller[],
 }
 
 
-static Node I(gen)(Node p) {
-  printf("// gen\n");
-  return NULL;
-}
-
-
 /*
  * void global(Symbol p) -- announce a global
  */
@@ -302,8 +300,13 @@ static void I(import)(Symbol p) {
 }
 
 
+/*
+ *
+ */
 static void I(local)(Symbol p) {
-  printf("// local\n");
+  if (askregvar(p, I(rmap)(ttob(p->type))) == 0) {
+    mkauto(p);
+  }
 }
 
 
@@ -323,9 +326,19 @@ static void setSwap(void) {
  * void progbeg(int argc, char *argv[]) -- beginning of program
  */
 static void I(progbeg)(int argc, char *argv[]) {
+  int i;
+
   setSwap();
   I(segment)(CODE);
   parseflags(argc, argv);
+  for (i = 0; i < 16; i++) {
+    ireg[i] = mkreg("%d", i, 1, IREG);
+  }
+  iregw = mkwildcard(ireg);
+  tmask[IREG] = INTTMP;
+  vmask[IREG] = INTVAR;
+  tmask[FREG] = 0;
+  vmask[FREG] = 0;
 }
 
 
@@ -384,6 +397,23 @@ static void I(space)(int n) {
 }
 
 
+/*
+ * Symbol rmap(int opk) -- map an operator kind to a register class
+ */
+static Symbol I(rmap)(int opk) {
+  switch (optype(opk)) {
+    case I:
+    case U:
+    case P:
+    case B:
+    case F:
+      return iregw;
+    default:
+      return 0;
+  }
+}
+
+
 Interface risc5IR = {
   1, 1, 0,        /* char */
   2, 2, 0,        /* short */
@@ -410,10 +440,10 @@ Interface risc5IR = {
   I(defconst),    /* defconst */
   I(defstring),   /* defstring */
   I(defsymbol),   /* defsymbol */
-  I(emit),        /* emit */
+  emit,           /* emit */
   I(export),      /* export */
   I(function),    /* function */
-  I(gen),         /* gen */
+  gen,            /* gen */
   I(global),      /* global */
   I(import),      /* import */
   I(local),       /* local */
@@ -428,4 +458,27 @@ Interface risc5IR = {
   0,              /* stabline */
   0,              /* stabsym */
   0,              /* stabtype */
+  {
+    1,                /* max_unaligned_load */
+    I(rmap),          /* rmap */
+    0,                /* blkfetch */
+    0,                /* blkstore */
+    0,                /* blkloop */
+    _label,           /* _label */
+    _rule,            /* _rule */
+    _nts,             /* _nts */
+    _kids,            /* _kids */
+    _string,          /* _string */
+    _templates,       /* _templates */
+    _isinstruction,   /* _isinstruction */
+    _ntname,          /* _ntname */
+//	void (*emit2)(Node);
+    0,                /* emit2 */
+//	void (*doarg)(Node);
+    0,                /* doarg */
+//	void (*target)(Node);
+    0,                /* target */
+//	void (*clobber)(Node);
+    0,                /* clobber */
+  }
 };
