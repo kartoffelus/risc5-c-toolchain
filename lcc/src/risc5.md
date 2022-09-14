@@ -4,42 +4,6 @@
  * risc5.md -- RISC5 back-end specification
  *
  * register usage:
- *   $0   always zero
- *   $1   reserved for assembler
- *   $2   func return value
- *   $3   func return value
- *   $4   proc/func argument
- *   $5   proc/func argument
- *   $6   proc/func argument
- *   $7   proc/func argument
- *   $8   temporary register (caller-save)
- *   $9   temporary register (caller-save)
- *   $10  temporary register (caller-save)
- *   $11  temporary register (caller-save)
- *   $12  temporary register (caller-save)
- *   $13  temporary register (caller-save)
- *   $14  temporary register (caller-save)
- *   $15  temporary register (caller-save)
- *   $16  register variable  (callee-save)
- *   $17  register variable  (callee-save)
- *   $18  register variable  (callee-save)
- *   $19  register variable  (callee-save)
- *   $20  register variable  (callee-save)
- *   $21  register variable  (callee-save)
- *   $22  register variable  (callee-save)
- *   $23  register variable  (callee-save)
- *   $24  temporary register (caller-save)
- *   $25  temporary register (caller-save)
- *   $26  reserved for OS kernel
- *   $27  reserved for OS kernel
- *   $28  reserved for OS kernel
- *   $29  stack pointer
- *   $30  interrupt return address
- *   $31  proc/func return address
- * caller-save registers are not preserved across procedure calls
- * callee-save registers are preserved across procedure calls
- *
- * register usage:
  *   R0   func return value
  *   R1   proc/func argument
  *   R2   proc/func argument
@@ -109,6 +73,8 @@ static Symbol ireg[32];
 static Symbol iregw;
 static Symbol blkreg;
 static int tmpregs[] = { 3, 9, 10 };
+
+static int debugFrame = 1;
 
 %}
 
@@ -331,7 +297,7 @@ reg:	ADDU4(reg,rc)		"\tADD\tR%c,R%0,%1\n"	1
 reg:	SUBI4(reg,rc)		"\tSUB\tR%c,R%0,%1\n"	1
 reg:	SUBP4(reg,rc)		"\tSUB\tR%c,R%0,%1\n"	1
 reg:	SUBU4(reg,rc)		"\tSUB\tR%c,R%0,%1\n"	1
-reg:	NEGI4(reg)		"\tsub\t$%c,$0,$%0\n"	1
+reg:	NEGI4(reg)		"\tMOV\tR12,0\n\tSUB\tR%c,R12,R%0\n"	1
 
 reg:	MULI4(reg,rc)		"\tMUL\tR%c,R%0,%1\n"	1
 reg:	MULU4(reg,rc)		"\tMULU\tR%c,R%0,%1\n"	1
@@ -340,14 +306,14 @@ reg:	DIVU4(reg,rc)		"\tDIVU\tR%c,R%0,%1\n"	1
 reg:	MODI4(reg,rc)		"\trem\t$%c,$%0,%1\n"	1
 reg:	MODU4(reg,rc)		"\tremu\t$%c,$%0,%1\n"	1
 
-reg:	BANDI4(reg,rc)		"\tand\t$%c,$%0,%1\n"	1
-reg:	BANDU4(reg,rc)		"\tand\t$%c,$%0,%1\n"	1
-reg:	BORI4(reg,rc)		"\tor\t$%c,$%0,%1\n"	1
-reg:	BORU4(reg,rc)		"\tor\t$%c,$%0,%1\n"	1
-reg:	BXORI4(reg,rc)		"\txor\t$%c,$%0,%1\n"	1
-reg:	BXORU4(reg,rc)		"\txor\t$%c,$%0,%1\n"	1
-reg:	BCOMI4(reg)		"\txnor\t$%c,$0,$%0\n"	1
-reg:	BCOMU4(reg)		"\txnor\t$%c,$0,$%0\n"	1
+reg:	BANDI4(reg,rc)		"\tAND\tR%c,R%0,%1\n"	1
+reg:	BANDU4(reg,rc)		"\tAND\tR%c,R%0,%1\n"	1
+reg:	BORI4(reg,rc)		"\tIOR\tR%c,R%0,%1\n"	1
+reg:	BORU4(reg,rc)		"\tIOR\tR%c,R%0,%1\n"	1
+reg:	BXORI4(reg,rc)		"\tXOR\tR%c,R%0,%1\n"	1
+reg:	BXORU4(reg,rc)		"\tXOR\tR%c,R%0,%1\n"	1
+reg:	BCOMI4(reg)		"\tXOR\tR%c,R%0,-1\n"	1
+reg:	BCOMU4(reg)		"\tXOR\tR%c,R%0,-1\n"	1
 
 rc5:	CNSTI4			"%a"			range(a, 0, 31)
 rc5:	reg			"$%0"
@@ -526,11 +492,14 @@ static int bitcount(unsigned mask) {
 
 static Symbol argreg(int argno, int offset, int ty, int sz, int ty0) {
   assert((offset & 3) == 0);
-  if (offset > 12) {
+  if (offset > 8) {
     return NULL;
   }
-  return ireg[(offset / 4) + 4];
+  return ireg[(offset / 4) + 1];
 }
+
+
+#define gen_roundup(x,n)	((((x) + ((n) - 1)) / (n)) * (n))
 
 
 static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
@@ -539,26 +508,31 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
   Symbol r;
   int sizeisave;
   int saved;
-  Symbol argregs[4];
+  Symbol argregs[3];
 
+  /*
+   * generate code
+   */
+  /* initialize */
   usedmask[0] = usedmask[1] = 0;
-  freemask[0] = freemask[1] = ~((unsigned) 0);
+  freemask[0] = freemask[1] = 0x0000FFFF;
   offset = 0;
   maxoffset = 0;
   maxargoffset = 0;
+  /* handle arguments */
   for (i = 0; callee[i] != NULL; i++) {
     p = callee[i];
     q = caller[i];
     assert(q != NULL);
-    offset = roundup(offset, q->type->align);
+    offset = gen_roundup(offset, q->type->align);
     p->x.offset = q->x.offset = offset;
     p->x.name = q->x.name = stringd(offset);
     r = argreg(i, offset, optype(ttob(q->type)),
                q->type->size, optype(ttob(caller[0]->type)));
-    if (i < 4) {
+    if (i < 3) {
       argregs[i] = r;
     }
-    offset = roundup(offset + q->type->size, 4);
+    offset = gen_roundup(offset + q->type->size, 4);
     if (variadic(f->type)) {
       p->sclass = AUTO;
     } else
@@ -578,32 +552,47 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     }
   }
   assert(caller[i] == NULL);
+  /* generate code for func/proc body */
   offset = 0;
   gencode(caller, callee);
+  /* compute framesize */
   if (ncalls != 0) {
-    usedmask[IREG] |= ((unsigned) 1) << 31;
+    usedmask[IREG] |= ((unsigned) 1) << 15;
   }
-  usedmask[IREG] &= 0x80FF0000;
-  maxargoffset = roundup(maxargoffset, 4);
-  if (ncalls != 0 && maxargoffset < 16) {
-    maxargoffset = 16;
-  }
+  usedmask[IREG] &= 0x00008F00;
   sizeisave = 4 * bitcount(usedmask[IREG]);
-  framesize = roundup(maxargoffset + sizeisave + maxoffset, 16);
+  assert(maxargoffset == gen_roundup(maxargoffset, 4));
+  assert(maxoffset == gen_roundup(maxoffset, 4));
+  framesize = maxargoffset + sizeisave + maxoffset;
+  /*
+   * emit code
+   */
+  if (debugFrame) {
+    /* emit info about frame as assembler comment */
+    print("//----------------------------------------------------\n");
+    print("// maxargoffset = %d, sizeisave = %d, maxoffset = %d\n",
+          maxargoffset, sizeisave, maxoffset);
+    print("// => framesize = %d\n", framesize);
+    print("//----------------------------------------------------\n");
+  }
+  /* set segment, align, define name */
   segment(CODE);
   print("\t.ALIGN\t4\n");
   print("%s:\n", f->x.name);
+  /* allocate frame */
   if (framesize > 0) {
     print("\tSUB\tR14,R14,%d\n", framesize);
   }
+  /* save registers */
   saved = maxargoffset;
-  for (i = 16; i < 32; i++) {
+  for (i = 8; i < 16; i++) {
     if (usedmask[IREG] & (1 << i)) {
-      print("\tstw\t$%d,$29,%d\n", i, saved);
+      print("\tSTW\tR%d,R14,%d\n", i, saved);
       saved += 4;
     }
   }
-  for (i = 0; i < 4 && callee[i] != NULL; i++) {
+  /* ??? arguments ??? */
+  for (i = 0; i < 3 && callee[i] != NULL; i++) {
     r = argregs[i];
     if (r && r->x.regnode != callee[i]->x.regnode) {
       Symbol out = callee[i];
@@ -621,29 +610,34 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         int off = in->x.offset + framesize;
         int n = (in->type->size + 3) / 4;
         int i;
-        for (i = rn; i < rn + n && i <= 7; i++) {
-          print("\tstw\t$%d,$29,%d\n", i, off + (i - rn) * 4);
+        for (i = rn; i < rn + n && i <= 3; i++) {
+          print("\tSTW\tR%d,R14,%d\n", i, off + (i - rn) * 4);
         }
       }
     }
   }
+  /* ??? variadic function ??? */
   if (variadic(f->type) && callee[i - 1] != NULL) {
     i = callee[i - 1]->x.offset + callee[i - 1]->type->size;
-    for (i = roundup(i, 4)/4; i <= 3; i++) {
+    for (i = gen_roundup(i, 4)/4; i <= 3; i++) {
       print("\tstw\t$%d,$29,%d\n", i + 4, framesize + 4 * i);
     }
   }
+  /* emit code for func/proc body */
   emitcode();
+  /* restore registers */
   saved = maxargoffset;
-  for (i = 16; i < 32; i++) {
+  for (i = 8; i < 16; i++) {
     if (usedmask[IREG] & (1 << i)) {
-      print("\tldw\t$%d,$29,%d\n", i, saved);
+      print("\tLDW\tR%d,R14,%d\n", i, saved);
       saved += 4;
     }
   }
+  /* free frame */
   if (framesize > 0) {
     print("\tADD\tR14,R14,%d\n", framesize);
   }
+  /* return */
   print("\tB\tR15\n");
   print("\n");
 }
