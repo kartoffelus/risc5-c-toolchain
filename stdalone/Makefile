@@ -4,7 +4,7 @@
 
 BUILD = ../build
 
-DIRS = hello
+DIRS = hello echo
 
 .PHONY:		all install clean
 

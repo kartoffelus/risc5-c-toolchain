@@ -1,6 +1,6 @@
 blinkintr	?
 blinkpoll	?
-echo		?
+echo		ok
 hello		ok
 hello2		?
 memtest		?
