@@ -4,7 +4,7 @@
 
 BUILD = ../build
 
-DIRS = blink
+DIRS = hello
 
 .PHONY:		all install clean
 

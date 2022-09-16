@@ -1,5 +1,5 @@
 #
-# standalone.lnk -- standalone linker script
+# standalone.lnk -- linker script for a standalone program
 #
 
 ENTRY _bcode;
