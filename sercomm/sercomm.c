@@ -10,7 +10,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
-#include <signal.h>
 
 
 #define SERDEV_FILE	"serial.dev"
@@ -199,19 +198,6 @@ int sendBootFile(FILE *bootFile, unsigned int addr) {
 /**************************************************************/
 
 
-int run;
-void (*oldHandler)(int sig);
-
-
-void sighandler(int sig) {
-  signal(SIGINT, sighandler);
-  run = 0;
-}
-
-
-/**************************************************************/
-
-
 void usage(char *myself) {
   printf("Usage: %s [<boot file>]\n", myself);
   exit(1);
@@ -225,6 +211,10 @@ int main(int argc, char *argv[]) {
   char *bootName;
   unsigned char b;
   FILE *bootFile;
+  struct termios origOpt;
+  struct termios currOpt;
+  fd_set rfds;
+  struct timeval tv;
 
   if (argc != 1 && argc != 2) {
     usage(argv[0]);
@@ -263,15 +253,41 @@ int main(int argc, char *argv[]) {
     printf("Sending boot file succeeded.\n");
     fclose(bootFile);
   }
-  run = 1;
-  oldHandler = signal(SIGINT, sighandler);
-  printf("Interactive terminal mode started...\n");
-  while (run) {
+  printf("Interactive terminal mode started, press ^E to end...\n");
+  tcgetattr(0, &origOpt);
+  currOpt = origOpt;
+  cfsetispeed(&currOpt, B9600);
+  cfsetospeed(&currOpt, B9600);
+  currOpt.c_cflag |= (CLOCAL | CREAD);
+  currOpt.c_cflag &= ~PARENB;
+  currOpt.c_cflag &= ~CSTOPB;
+  currOpt.c_cflag &= ~CSIZE;
+  currOpt.c_cflag |= CS8;
+  currOpt.c_cflag &= ~CRTSCTS;
+  currOpt.c_lflag &= ~(ICANON | ECHO | ECHONL | ISIG | IEXTEN);
+  currOpt.c_iflag &= ~(IGNBRK | BRKINT | IGNPAR | PARMRK);
+  currOpt.c_iflag &= ~(INPCK | ISTRIP | INLCR | IGNCR | ICRNL);
+  currOpt.c_iflag &= ~(IXON | IXOFF | IXANY);
+  currOpt.c_oflag &= ~(OPOST | ONLCR | OCRNL | ONOCR | ONLRET);
+  tcsetattr(0, TCSANOW, &currOpt);
+  while (1) {
     if (serialRcv(&b)) {
       putc(b, stdout);
       fflush(stdout);
     }
+    FD_ZERO(&rfds);
+    FD_SET(0, &rfds);
+    tv.tv_sec = 0;
+    tv.tv_usec = 100;
+    if (select(1, &rfds, NULL, NULL, &tv) > 0) {
+      b = getc(stdin);
+      if (b == 0x05) {
+        break;
+      }
+      serialSnd(b);
+    }
   }
-  signal(SIGINT, oldHandler);
+  tcsetattr(0, TCSANOW, &origOpt);
+  printf("\nInteractive terminal mode ended.\n");
   return 0;
 }
