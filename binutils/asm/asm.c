@@ -1267,6 +1267,10 @@ Value parseExpression(void) {
 /* assemblers for the different formats */
 
 
+#define Q_BIT		0x40000000
+#define V_BIT		0x10000000
+
+
 /*
  * format_0 operands: register, register or immediate
  */
@@ -1288,17 +1292,32 @@ void format_0(unsigned int code) {
   } else {
     v = parseExpression();
     imm = (unsigned) v.con;
-    /* set q-bit */
-    code |= 0x40000000;
     if (v.sym == NULL) {
+      if ((imm & 0xFFFF0000) == 0x00000000) {
+        /* set q-bit only */
+        code |= Q_BIT;
+        emitWord(code | (reg1 << 24) | (imm & 0x0000FFFF));
+      } else
       if ((imm & 0xFFFF0000) == 0xFFFF0000) {
-        /* set v-bit */
-        code |= 0x10000000;
+        /* set q-bit and v-bit */
+        code |= Q_BIT | V_BIT;
+        emitWord(code | (reg1 << 24) | (imm & 0x0000FFFF));
+      } else {
+        /* must synthesize the value */
+        code = OP_MOVH;
+        emitWord(code | (reg1 << 24) | (imm >> 16));
+        if ((imm & 0x0000FFFF) != 0x00000000) {
+          code = OP_IOR | Q_BIT;
+          emitWord(code | (reg1 << 24) | (reg1 << 20) | (imm & 0x0000FFFF));
+        }
       }
-      emitWord(code | (reg1 << 24) | (imm & 0x0000FFFF));
     } else {
-      addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
+      addFixup(currSeg, segPtr[currSeg], RELOC_H16, v.sym, v.con);
+      code = OP_MOVH;
       emitWord(code | (reg1 << 24));
+      addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
+      code = OP_IOR | Q_BIT;
+      emitWord(code | (reg1 << 24) | (reg1 << 20));
     }
   }
 }
