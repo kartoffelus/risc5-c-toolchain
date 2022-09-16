@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <signal.h>
 
 
 #define SERDEV_FILE	"serial.dev"
@@ -198,6 +199,19 @@ int sendBootFile(FILE *bootFile, unsigned int addr) {
 /**************************************************************/
 
 
+int run;
+void (*oldHandler)(int sig);
+
+
+void sighandler(int sig) {
+  signal(SIGINT, sighandler);
+  run = 0;
+}
+
+
+/**************************************************************/
+
+
 void usage(char *myself) {
   printf("Usage: %s [<boot file>]\n", myself);
   exit(1);
@@ -243,12 +257,21 @@ int main(int argc, char *argv[]) {
       error("cannot open boot file '%s'", bootName);
     }
     printf("Sending boot file '%s', please wait...\n", bootName);
-    if (sendBootFile(bootFile, 0)) {
-      printf("Sending boot file succeeded.\n");
-    } else {
-      printf("Sending boot file failed.\n");
+    if (!sendBootFile(bootFile, 0)) {
+      error("Sending boot file failed.\n");
     }
+    printf("Sending boot file succeeded.\n");
     fclose(bootFile);
   }
+  run = 1;
+  oldHandler = signal(SIGINT, sighandler);
+  printf("Interactive terminal mode started...\n");
+  while (run) {
+    if (serialRcv(&b)) {
+      putc(b, stdout);
+      fflush(stdout);
+    }
+  }
+  signal(SIGINT, oldHandler);
   return 0;
 }
