@@ -1267,8 +1267,10 @@ Value parseExpression(void) {
 /* assemblers for the different formats */
 
 
-#define Q_BIT		0x40000000
-#define V_BIT		0x10000000
+#define Q_BIT		0x40000000		/* immediate operand bit */
+#define V_BIT		0x10000000		/* filler for high 16 bits */
+#define OP_IORI		(OP_IOR | Q_BIT)	/* inclusive OR immediate */
+#define AUX		12			/* aux assembler register */
 
 
 /*
@@ -1304,20 +1306,17 @@ void format_0(unsigned int code) {
         emitWord(code | (reg1 << 24) | (imm & 0x0000FFFF));
       } else {
         /* must synthesize the value */
-        code = OP_MOVH;
-        emitWord(code | (reg1 << 24) | (imm >> 16));
+        emitWord(OP_MOVH | (reg1 << 24) | (imm >> 16));
         if ((imm & 0x0000FFFF) != 0x00000000) {
-          code = OP_IOR | Q_BIT;
-          emitWord(code | (reg1 << 24) | (reg1 << 20) | (imm & 0x0000FFFF));
+          emitWord(OP_IORI | (reg1 << 24) | (reg1 << 20) | (imm & 0x0000FFFF));
         }
       }
     } else {
+      /* must synthesize the value in any case */
       addFixup(currSeg, segPtr[currSeg], RELOC_H16, v.sym, v.con);
-      code = OP_MOVH;
-      emitWord(code | (reg1 << 24));
+      emitWord(OP_MOVH | (reg1 << 24));
       addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
-      code = OP_IOR | Q_BIT;
-      emitWord(code | (reg1 << 24) | (reg1 << 20));
+      emitWord(OP_IORI | (reg1 << 24) | (reg1 << 20));
     }
   }
 }
@@ -1400,17 +1399,31 @@ void format_3(unsigned int code) {
   } else {
     v = parseExpression();
     imm = (unsigned) v.con;
-    /* set q-bit */
-    code |= 0x40000000;
     if (v.sym == NULL) {
+      if ((imm & 0xFFFF0000) == 0x00000000) {
+        /* set q-bit only */
+        code |= Q_BIT;
+        emitWord(code | (reg1 << 24) | (reg2 << 20) | (imm & 0x0000FFFF));
+      } else
       if ((imm & 0xFFFF0000) == 0xFFFF0000) {
-        /* set v-bit */
-        code |= 0x10000000;
+        /* set q-bit and v-bit */
+        code |= Q_BIT | V_BIT;
+        emitWord(code | (reg1 << 24) | (reg2 << 20) | (imm & 0x0000FFFF));
+      } else {
+        /* must synthesize the value */
+        emitWord(OP_MOVH | (AUX << 24) | (imm >> 16));
+        if ((imm & 0x0000FFFF) != 0x00000000) {
+          emitWord(OP_IORI | (AUX << 24) | (AUX << 20) | (imm & 0x0000FFFF));
+        }
+        emitWord(code | (reg1 << 24) | (reg2 << 20) | AUX);
       }
-      emitWord(code | (reg1 << 24) | (reg2 << 20) | (imm & 0x0000FFFF));
     } else {
+      /* must synthesize the value in any case */
+      addFixup(currSeg, segPtr[currSeg], RELOC_H16, v.sym, v.con);
+      emitWord(OP_MOVH | (AUX << 24));
       addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
-      emitWord(code | (reg1 << 24) | (reg2 << 20));
+      emitWord(OP_IORI | (AUX << 24) | (AUX << 20));
+      emitWord(code | (reg1 << 24) | (reg2 << 20) | AUX);
     }
   }
 }
