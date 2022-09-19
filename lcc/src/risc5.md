@@ -257,13 +257,13 @@ addr:	ADDRLP4			"R14,%a+%F"
 
 reg:	addr			"\tMOV\tR%c,%0\n"	1
 
-reg:	CNSTI1			"# reg\n"		range(a, 0, 0)
-reg:	CNSTI2			"# reg\n"		range(a, 0, 0)
-reg:	CNSTI4			"# reg\n"		range(a, 0, 0)
-reg:	CNSTP4			"# reg\n"		range(a, 0, 0)
-reg:	CNSTU1			"# reg\n"		range(a, 0, 0)
-reg:	CNSTU2			"# reg\n"		range(a, 0, 0)
-reg:	CNSTU4			"# reg\n"		range(a, 0, 0)
+reg:	CNSTI1			"# reg\n"		1
+reg:	CNSTI2			"# reg\n"		1
+reg:	CNSTI4			"# reg\n"		1
+reg:	CNSTP4			"# reg\n"		1
+reg:	CNSTU1			"# reg\n"		1
+reg:	CNSTU2			"# reg\n"		1
+reg:	CNSTU4			"# reg\n"		1
 
 stmt:	ASGNI1(addr,reg)	"\tSTB\tR%1,%0\n"	1
 stmt:	ASGNI2(addr,reg)	"\tSTH\tR%1,%0\n"	1
