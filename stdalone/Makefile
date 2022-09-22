@@ -4,7 +4,7 @@
 
 BUILD = ../build
 
-DIRS = hello echo hello2
+DIRS = hello echo hello2 blinkintr
 
 .PHONY:		all install clean
 
