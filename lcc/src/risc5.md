@@ -251,19 +251,19 @@ addr:	ADDP4(reg,acon)		"R%0,%1"
 addr:	ADDU4(reg,acon)		"R%0,%1"
 
 addr:	acon			"%0"
-addr:	reg			"R%0"
+addr:	reg			"R%0,0"
 addr:	ADDRFP4			"R14,%a+%F"
 addr:	ADDRLP4			"R14,%a+%F"
 
-reg:	addr			"\tMOV\tR%c,%0\n"	1
+reg:	addr			"\tMOV\tR%c,%0\n"	2
 
-reg:	CNSTI1			"# reg\n"		1
-reg:	CNSTI2			"# reg\n"		1
-reg:	CNSTI4			"# reg\n"		1
-reg:	CNSTP4			"# reg\n"		1
-reg:	CNSTU1			"# reg\n"		1
-reg:	CNSTU2			"# reg\n"		1
-reg:	CNSTU4			"# reg\n"		1
+reg:	CNSTI1			"\tMOV\tR%c,%a\n"	1
+reg:	CNSTI2			"\tMOV\tR%c,%a\n"	1
+reg:	CNSTI4			"\tMOV\tR%c,%a\n"	1
+reg:	CNSTP4			"\tMOV\tR%c,%a\n"	1
+reg:	CNSTU1			"\tMOV\tR%c,%a\n"	1
+reg:	CNSTU2			"\tMOV\tR%c,%a\n"	1
+reg:	CNSTU4			"\tMOV\tR%c,%a\n"	1
 
 stmt:	ASGNI1(addr,reg)	"\tSTB\tR%1,%0\n"	1
 stmt:	ASGNI2(addr,reg)	"\tSTH\tR%1,%0\n"	1
@@ -281,12 +281,12 @@ reg:	INDIRU1(addr)		"\tLDB\tR%c,%0\n"	1
 reg:	INDIRU2(addr)		"\tLDH\tR%c,%0\n"	1
 reg:	INDIRU4(addr)		"\tLDW\tR%c,%0\n"	1
 
-reg:	CVII4(INDIRI1(addr))	"\tldb\t$%c,%0\n"	1
-reg:	CVII4(INDIRI2(addr))	"\tldh\t$%c,%0\n"	1
-reg:	CVUU4(INDIRU1(addr))	"\tldbu\t$%c,%0\n"	1
-reg:	CVUU4(INDIRU2(addr))	"\tldhu\t$%c,%0\n"	1
-reg:	CVUI4(INDIRU1(addr))	"\tldbu\t$%c,%0\n"	1
-reg:	CVUI4(INDIRU2(addr))	"\tldhu\t$%c,%0\n"	1
+reg:	CVII4(INDIRI1(addr))	"\tLDB\tR%c,%0\n\tLSL\tR%c,R%c,24\n\tASR\tR%c,R%c,24\n"	1
+reg:	CVII4(INDIRI2(addr))	"\tLDH\tR%c,%0\n\tLSL\tR%c,R%c,16\n\tASR\tR%c,R%c,16\n"	1
+reg:	CVUU4(INDIRU1(addr))	"\tLDB\tR%c,%0\n"	1
+reg:	CVUU4(INDIRU2(addr))	"\tLDH\tR%c,%0\n"	1
+reg:	CVUI4(INDIRU1(addr))	"\tLDB\tR%c,%0\n"	1
+reg:	CVUI4(INDIRU2(addr))	"\tLDH\tR%c,%0\n"	1
 
 rc:	con			"%0"
 rc:	reg			"R%0"
@@ -318,10 +318,10 @@ reg:	BCOMU4(reg)		"\tXOR\tR%c,R%0,-1\n"	1
 rc5:	CNSTI4			"%a"			range(a, 0, 31)
 rc5:	reg			"$%0"
 
-reg:	LSHI4(reg,rc5)		"\tsll\t$%c,$%0,%1\n"	1
-reg:	LSHU4(reg,rc5)		"\tsll\t$%c,$%0,%1\n"	1
-reg:	RSHI4(reg,rc5)		"\tsar\t$%c,$%0,%1\n"	1
-reg:	RSHU4(reg,rc5)		"\tslr\t$%c,$%0,%1\n"	1
+reg:	LSHI4(reg,rc5)		"\tLSL\tR%c,R%0,%1\n"	1
+reg:	LSHU4(reg,rc5)		"\tLSL\tR%c,R%0,%1\n"	1
+reg:	RSHI4(reg,rc5)		"\tASR\tR%c,R%0,%1\n"	1
+reg:	RSHU4(reg,rc5)		"\tASR\tR%c,R%0,%1\n\tAND\tR%c,R%c,(1<<(32-%1))-1\n"  2
 
 reg:	LOADI1(reg)		"\tMOV\tR%c,R%0\n"	move(a)
 reg:	LOADI2(reg)		"\tMOV\tR%c,R%0\n"	move(a)
@@ -331,26 +331,26 @@ reg:	LOADU1(reg)		"\tMOV\tR%c,R%0\n"	move(a)
 reg:	LOADU2(reg)		"\tMOV\tR%c,R%0\n"	move(a)
 reg:	LOADU4(reg)		"\tMOV\tR%c,R%0\n"	move(a)
 
-reg:	CVII4(reg)  "\tsll\t$%c,$%0,8*(4-%a)\n\tsar\t$%c,$%c,8*(4-%a)\n"  2
-reg:	CVUI4(reg)  "\tand\t$%c,$%0,(1<<(8*%a))-1\n"	1
-reg:	CVUU4(reg)  "\tand\t$%c,$%0,(1<<(8*%a))-1\n"	1
+reg:	CVII4(reg)  "\tLSL\tR%c,R%0,8*(4-%a)\n\tASR\tR%c,R%c,8*(4-%a)\n"  2
+reg:	CVUI4(reg)  "\tAND\tR%c,R%0,(1<<(8*%a))-1\n"	1
+reg:	CVUU4(reg)  "\tAND\tR%c,R%0,(1<<(8*%a))-1\n"	1
 
 stmt:	LABELV			"%a:\n"
 stmt:	JUMPV(acon)		"\tB\t%0\n"		1
 stmt:	JUMPV(reg)		"\tB\tR%0\n"		1
 
-stmt:	EQI4(reg,reg)		"\tbeq\t$%0,$%1,%a\n"	1
-stmt:	EQU4(reg,reg)		"\tbeq\t$%0,$%1,%a\n"	1
-stmt:	NEI4(reg,reg)		"\tbne\t$%0,$%1,%a\n"	1
-stmt:	NEU4(reg,reg)		"\tbne\t$%0,$%1,%a\n"	1
-stmt:	LEI4(reg,reg)		"\tble\t$%0,$%1,%a\n"	1
-stmt:	LEU4(reg,reg)		"\tbleu\t$%0,$%1,%a\n"	1
-stmt:	LTI4(reg,reg)		"\tblt\t$%0,$%1,%a\n"	1
-stmt:	LTU4(reg,reg)		"\tbltu\t$%0,$%1,%a\n"	1
-stmt:	GEI4(reg,reg)		"\tbge\t$%0,$%1,%a\n"	1
-stmt:	GEU4(reg,reg)		"\tbgeu\t$%0,$%1,%a\n"	1
-stmt:	GTI4(reg,reg)		"\tbgt\t$%0,$%1,%a\n"	1
-stmt:	GTU4(reg,reg)		"\tbgtu\t$%0,$%1,%a\n"	1
+stmt:	EQI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBEQ\t%a\n"	1
+stmt:	EQU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBEQ\t%a\n"	1
+stmt:	NEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBNE\t%a\n"	1
+stmt:	NEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBNE\t%a\n"	1
+stmt:	LEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLE\t%a\n"	1
+stmt:	LEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLS\t%a\n"	1
+stmt:	LTI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLT\t%a\n"	1
+stmt:	LTU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBCS\t%a\n"	1
+stmt:	GEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGE\t%a\n"	1
+stmt:	GEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBCC\t%a\n"	1
+stmt:	GTI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGT\t%a\n"	1
+stmt:	GTU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBHI\t%a\n"	1
 
 reg:	CALLI4(ar)		"\tC\t%0\n"		1
 reg:	CALLP4(ar)		"\tC\t%0\n"		1
@@ -358,7 +358,7 @@ reg:	CALLU4(ar)		"\tC\t%0\n"		1
 stmt:	CALLV(ar)		"\tC\t%0\n"		1
 
 ar:	ADDRGP4			"%a"
-ar:	reg			"$%0"
+ar:	reg			"R%0"
 ar:	CNSTP4			"%a"		range(a, 0, 0x03FFFFFF)
 
 stmt:	RETI4(reg)		"# ret\n"		1
@@ -605,7 +605,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
       if (out->sclass == REGISTER &&
           (isint(out->type) || out->type == in->type)) {
         int outn = out->x.regnode->number;
-        print("\tadd\t$%d,$0,$%d\n", outn, rn);
+        print("\tMOV\tR%d,R%d\n", outn, rn);
       } else {
         int off = in->x.offset + framesize;
         int n = (in->type->size + 3) / 4;
@@ -797,8 +797,8 @@ static void blkloop(int dreg, int doff,
   int label;
 
   label = genlabel(1);
-  print("\tadd\t$%d,$%d,%d\n", sreg, sreg, size & ~7);
-  print("\tadd\t$%d,$%d,%d\n", tmps[2], dreg, size & ~7);
+  print("\taddy\t$%d,$%d,%d\n", sreg, sreg, size & ~7);
+  print("\taddz\t$%d,$%d,%d\n", tmps[2], dreg, size & ~7);
   blkcopy(tmps[2], doff, sreg, soff, size & 7, tmps);
   print("L.%d:\n", label);
   print("\tsub\t$%d,$%d,%d\n", sreg, sreg, 8);
@@ -884,10 +884,6 @@ static void target(Node p) {
     case CNST+I:
     case CNST+P:
     case CNST+U:
-      if (range(p, 0, 0) == 0) {
-        setreg(p, ireg[0]);
-        p->x.registered = 1;
-      }
       break;
     case CALL+I:
     case CALL+P:
