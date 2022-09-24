@@ -1,5 +1,5 @@
 //
-// test01.asm -- check setting the segment
+// test01.s -- check setting the segment
 //
 
 	.CODE

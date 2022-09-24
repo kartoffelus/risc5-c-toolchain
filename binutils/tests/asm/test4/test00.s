@@ -1,5 +1,5 @@
 //
-// test00.asm -- check tokens
+// test00.s -- check tokens
 //
 
 a_label:

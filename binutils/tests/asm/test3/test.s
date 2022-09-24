@@ -1,5 +1,5 @@
 //
-// test.asm -- test fixup methods
+// test.s -- test fixup methods
 //
 
 	// fixup method IMMEDIATE
@@ -24,6 +24,6 @@ V:
 	.WORD	X, X, X
 	.SET	X,0x12345678
 
-	// fixup method BYTE
-	.BYTE	Y, Y, Y
+	// there is *no* fixup method BYTE
 	.SET	Y,0x12345678
+	.BYTE	Y, Y, Y

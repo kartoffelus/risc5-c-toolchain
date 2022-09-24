@@ -1,5 +1,5 @@
 //
-// test.asm -- assembler test
+// test.s -- assembler test
 //
 
 	B	start

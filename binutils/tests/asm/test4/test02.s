@@ -1,5 +1,5 @@
 //
-// test02.asm -- check multiply defined labels
+// test02.s -- check multiply defined labels
 //
 
 label_0:

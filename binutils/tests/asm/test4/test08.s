@@ -1,5 +1,5 @@
 //
-// test08.asm -- check W32 relocations
+// test08.s -- check W32 relocations
 //
 
 	.CODE

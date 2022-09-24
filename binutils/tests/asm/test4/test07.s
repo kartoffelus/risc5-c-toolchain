@@ -1,5 +1,5 @@
 //
-// test07.asm -- check relocations
+// test07.s -- check relocations
 //
 
 	.DATA

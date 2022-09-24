@@ -49,13 +49,13 @@ static void disasmF0(Word instr) {
       /* u = 0: move from any general register */
       sprintf(instrBuffer, "%-7s R%d,R%d", regOps[op], a, c);
     } else {
-      /* u = 1: move from special register */
+      /* u = 1: move to/from special register */
       if (((instr >> 28) & 1) == 0) {
-        /* v = 0: get H register */
-        sprintf(instrBuffer, "%-7s R%d", "GETH", a);
+        /* v = 0: put special register */
+        sprintf(instrBuffer, "%-7s R%d,%d", "PUTS", a, c);
       } else {
-        /* v = 1: get flag values and CPU ID */
-        sprintf(instrBuffer, "%-7s R%d", "GETF", a);
+        /* v = 1: get special register */
+        sprintf(instrBuffer, "%-7s R%d,%d", "GETS", a, c);
       }
     }
   } else {
@@ -99,7 +99,7 @@ static void disasmF1(Word instr) {
       sprintf(instrBuffer, "%-7s R%d,0x%08X", regOps[op], a, im);
     } else {
       /* u = 1: shift immediate value to upper 16 bits */
-      sprintf(instrBuffer, "%-7s R%d,0x%08X", regOps[op], a, im);
+      sprintf(instrBuffer, "%-7s R%d,0x%08X", regOps[op], a, im << 16);
       instrBuffer[3] = 'H';
     }
   } else {
@@ -196,9 +196,9 @@ static void disasmF3(Word instr, Word locus) {
       sprintf(instrBuffer, "C%-6s R%d", cond, c);
     }
   } else {
-    /* u = 1: branch target is pc + 1 + offset */
+    /* u = 1: branch target is pc + 4 + offset * 4 */
     offset = instr & 0x003FFFFF;
-    target = (((locus >> 2) + 1 + offset) << 2) & ADDR_MASK;
+    target = (locus + 4 + (offset << 2)) & ADDR_MASK;
     if (((instr >> 28) & 1) == 0) {
       /* v = 0: branch */
       sprintf(instrBuffer, "B%-6s 0x%08X", cond, target);

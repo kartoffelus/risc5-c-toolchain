@@ -1,5 +1,5 @@
 //
-// test04.asm -- check format_3 instructions
+// test04.s -- check format_3 instructions
 //
 
 	ADD	R0,R1,R2
