@@ -19,3 +19,15 @@ extern char c2;
 char c3 = 0x12;
 static char c4;
 static char c5 = 0x34;
+
+float f1;
+extern float f2;
+float f3 = 3.1415926;
+static float f4;
+static float f5 = 2.7182818;
+
+double d1;
+extern double d2;
+double d3 = 3.1415926;
+static double d4;
+static double d5 = 2.7182818;
