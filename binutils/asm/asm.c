@@ -1268,6 +1268,7 @@ Value parseExpression(void) {
 
 
 #define Q_BIT		0x40000000		/* immediate operand bit */
+#define U_BIT		0x20000000		/* branch rel distance bit */
 #define V_BIT		0x10000000		/* filler for high 16 bits */
 #define OP_IORI		(OP_IOR | Q_BIT)	/* inclusive OR immediate */
 #define AUX		12			/* aux assembler register */
@@ -1495,7 +1496,7 @@ void format_6(unsigned int code) {
     emitWord(code | reg);
   } else {
     /* set u-bit */
-    code |= 0x20000000;
+    code |= U_BIT;
     v = parseExpression();
     off = v.con;
     if (v.sym == NULL) {
