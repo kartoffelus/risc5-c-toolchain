@@ -1456,7 +1456,7 @@ void format_5(unsigned int code) {
   int reg1;
   int reg2;
   Value v;
-  int off;
+  unsigned int off;
 
   expect(TOK_REGISTER);
   reg1 = tokenvalNumber;
@@ -1471,13 +1471,25 @@ void format_5(unsigned int code) {
   v = parseExpression();
   off = v.con;
   if (v.sym == NULL) {
-    if (off < -(1 << 19) || off >= (1 << 19)) {
-      error("offset out of bounds in line %d", lineno);
+    if (((int) off) >= -(1 << 19) && ((int) off) < (1 << 19)) {
+      emitWord(code | (reg1 << 24) | (reg2 << 20) | (off & 0x000FFFFF));
+    } else {
+      /* must synthesize the value */
+      emitWord(OP_MOVH | (AUX << 24) | (off >> 16));
+      if ((off & 0x0000FFFF) != 0x00000000) {
+        emitWord(OP_IORI | (AUX << 24) | (AUX << 20) | (off & 0x0000FFFF));
+      }
+      emitWord(OP_ADD | (AUX << 24) | (AUX << 20) | reg2);
+      emitWord(code | (reg1 << 24) | (AUX << 20));
     }
-    emitWord(code | (reg1 << 24) | (reg2 << 20) | (off & 0x000FFFFF));
   } else {
-    addFixup(currSeg, segPtr[currSeg], RELOC_L20, v.sym, v.con);
-    emitWord(code | (reg1 << 24) | (reg2 << 20));
+    /* must synthesize the value in any case */
+    addFixup(currSeg, segPtr[currSeg], RELOC_H16, v.sym, v.con);
+    emitWord(OP_MOVH | (AUX << 24));
+    addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
+    emitWord(OP_IORI | (AUX << 24) | (AUX << 20));
+    emitWord(OP_ADD | (AUX << 24) | (AUX << 20) | reg2);
+    emitWord(code | (reg1 << 24) | (AUX << 20));
   }
 }
 
