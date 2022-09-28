@@ -847,6 +847,49 @@ void writeWord(Word addr, Word data) {
 }
 
 
+Half readHalf(Word addr) {
+  Word w;
+  Half h;
+
+  if ((addr & 1) != 0) {
+    error("memory read half @ 0x%08X not half-word aligned, PC = 0x%08X",
+          addr, cpuGetPC() - 4);
+  }
+  w = readWord(addr & ~3);
+  switch (addr & 2) {
+    case 0:
+      h = (w >> 0) & 0xFFFF;
+      break;
+    case 2:
+      h = (w >> 16) & 0xFFFF;
+      break;
+  }
+  return h;
+}
+
+
+void writeHalf(Word addr, Half data) {
+  Word w;
+
+  if ((addr & 1) != 0) {
+    error("memory write half @ 0x%08X not half-word aligned, PC = 0x%08X",
+          addr, cpuGetPC() - 4);
+  }
+  w = readWord(addr & ~3);
+  switch (addr & 2) {
+    case 0:
+      w &= ~(0xFFFF << 0);
+      w |= (Word) data << 0;
+      break;
+    case 2:
+      w &= ~(0xFFFF << 16);
+      w |= (Word) data << 16;
+      break;
+  }
+  writeWord(addr & ~3, w);
+}
+
+
 Byte readByte(Word addr) {
   Word w;
   Byte b;
@@ -1860,6 +1903,7 @@ static void help(void) {
   printf("  rp      show/set PSW\n");
   printf("  d       dump memory\n");
   printf("  mw      show/set memory word\n");
+  printf("  mh      show/set memory half\n");
   printf("  mb      show/set memory byte\n");
   printf("  ss      show/set switches\n");
   printf("  q       quit simulator\n");
@@ -2328,6 +2372,50 @@ static void doMemoryWord(char *tokens[], int n) {
 }
 
 
+static void helpMemoryHalf(void) {
+  printf("  mh                show memory half at PC\n");
+  printf("  mh <addr>         show memory half at <addr>\n");
+  printf("  mh <addr> <data>  set memory half at <addr> to <data>\n");
+}
+
+
+static void doMemoryHalf(char *tokens[], int n) {
+  Word addr;
+  Half data;
+  Word tmpData;
+
+  if (n == 1) {
+    addr = cpuGetPC();
+    data = readHalf(addr);
+    printf("%06X:  %04X\n", addr, data);
+  } else if (n == 2) {
+    if (!getHexNumber(tokens[1], &addr)) {
+      printf("illegal address\n");
+      return;
+    }
+    addr &= ADDR_MASK;
+    addr &= ~0x00000001;
+    data = readHalf(addr);
+    printf("%06X:  %04X\n", addr, data);
+  } else if (n == 3) {
+    if (!getHexNumber(tokens[1], &addr)) {
+      printf("illegal address\n");
+      return;
+    }
+    if (!getHexNumber(tokens[2], &tmpData)) {
+      printf("illegal data\n");
+      return;
+    }
+    addr &= ADDR_MASK;
+    addr &= ~0x00000001;
+    data = (Half) tmpData;
+    writeHalf(addr, data);
+  } else {
+    helpMemoryHalf();
+  }
+}
+
+
 static void helpMemoryByte(void) {
   printf("  mb                show memory byte at PC\n");
   printf("  mb <addr>         show memory byte at <addr>\n");
@@ -2432,6 +2520,7 @@ Command commands[] = {
   { "rp",   helpPSW,        doPSW        },
   { "d",    helpDump,       doDump       },
   { "mw",   helpMemoryWord, doMemoryWord },
+  { "mh",   helpMemoryHalf, doMemoryHalf },
   { "mb",   helpMemoryByte, doMemoryByte },
   { "ss",   helpSwitches,   doSwitches   },
   { "q",    helpQuit,       doQuit       },
