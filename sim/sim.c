@@ -1270,17 +1270,20 @@ static void execNextInstruction(void) {
   } else {
     if (q == 0) {
       /* memory instructions */
-      imm = SIGN_EXT_20(ir & 0x000FFFFF);
       a = reg[ira];
       b = reg[irb];
       if (u == 0) {
         /* load */
         if (v == 0) {
-          /* word */
-          res = readWord(b + imm);
+          /* word/half */
+          if ((ir & 1) == 0) {
+            res = readWord(b + SIGN_EXT_20(ir & 0x000FFFFC));
+          } else {
+            res = readHalf(b + SIGN_EXT_20(ir & 0x000FFFFE));
+          }
         } else {
           /* byte */
-          res = readByte(b + imm);
+          res = readByte(b + SIGN_EXT_20(ir & 0x000FFFFF));
         }
         reg[ira] = res;
         N = (res >> 31) & 1;
@@ -1288,11 +1291,15 @@ static void execNextInstruction(void) {
       } else {
         /* store */
         if (v == 0) {
-          /* word */
-          writeWord(b + imm, a);
+          /* word/half */
+          if ((ir & 1) == 0) {
+            writeWord(b + SIGN_EXT_20(ir & 0x000FFFFC), a);
+          } else {
+            writeHalf(b + SIGN_EXT_20(ir & 0x000FFFFE), a);
+          }
         } else {
           /* byte */
-          writeByte(b + imm, a);
+          writeByte(b + SIGN_EXT_20(ir & 0x000FFFFF), a);
         }
       }
     } else {
@@ -1686,31 +1693,46 @@ static void disasmF1(Word instr) {
 
 static void disasmF2(Word instr) {
   char *opName;
+  unsigned int mask;
   int a, b;
   int offset;
 
   if (((instr >> 29) & 1) == 0) {
     /* u = 0: load */
     if (((instr >> 28) & 1) == 0) {
-      /* v = 0: word */
-      opName = "LDW";
+      /* v = 0: word/half */
+      if ((instr & 1) == 0) {
+        opName = "LDW";
+        mask = 0x000FFFFC;
+      } else {
+        opName = "LDH";
+        mask = 0x000FFFFE;
+      }
     } else {
       /* v = 1: byte */
       opName = "LDB";
+      mask = 0x000FFFFF;
     }
   } else {
     /* u = 1: store */
     if (((instr >> 28) & 1) == 0) {
-      /* v = 0: word */
-      opName = "STW";
+      /* v = 0: word/half */
+      if ((instr & 1) == 0) {
+        opName = "STW";
+        mask = 0x000FFFFC;
+      } else {
+        opName = "STH";
+        mask = 0x000FFFFE;
+      }
     } else {
       /* v = 1: byte */
       opName = "STB";
+      mask = 0x000FFFFF;
     }
   }
   a = (instr >> 24) & 0x0F;
   b = (instr >> 20) & 0x0F;
-  offset = SIGN_EXT_20(instr & 0x000FFFFF);
+  offset = SIGN_EXT_20(instr & mask);
   sprintf(instrBuffer, "%-7s R%d,R%d,%s0x%05X",
           opName, a, b,
           offset < 0 ? "-" : "+",
