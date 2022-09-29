@@ -82,8 +82,10 @@
 #define OP_FLT		0x200C0000
 
 #define OP_LDW		0x80000000
+#define OP_LDH		0x80000001
 #define OP_LDB		0x90000000
 #define OP_STW		0xA0000000
+#define OP_STH		0xA0000001
 #define OP_STB		0xB0000000
 
 #define OP_BMI		0xC0000000
@@ -1474,7 +1476,7 @@ void format_5(unsigned int code) {
     if (((int) off) >= -(1 << 19) && ((int) off) < (1 << 19)) {
       emitWord(code | (reg1 << 24) | (reg2 << 20) | (off & 0x000FFFFF));
     } else {
-      /* must synthesize the value */
+      /* must synthesize the address */
       emitWord(OP_MOVH | (AUX << 24) | (off >> 16));
       if ((off & 0x0000FFFF) != 0x00000000) {
         emitWord(OP_IORI | (AUX << 24) | (AUX << 20) | (off & 0x0000FFFF));
@@ -1483,7 +1485,7 @@ void format_5(unsigned int code) {
       emitWord(code | (reg1 << 24) | (AUX << 20));
     }
   } else {
-    /* must synthesize the value in any case */
+    /* must synthesize the address in any case */
     addFixup(currSeg, segPtr[currSeg], RELOC_H16, v.sym, v.con);
     emitWord(OP_MOVH | (AUX << 24));
     addFixup(currSeg, segPtr[currSeg], RELOC_L16, v.sym, v.con);
@@ -1791,8 +1793,10 @@ Instr instrTable[] = {
   { "FLT",     format_4,  OP_FLT	},
   /* load/store memory */
   { "LDW",     format_5,  OP_LDW	},
+  { "LDH",     format_5,  OP_LDH	},
   { "LDB",     format_5,  OP_LDB	},
   { "STW",     format_5,  OP_STW	},
+  { "STH",     format_5,  OP_STH	},
   { "STB",     format_5,  OP_STB	},
   /* branch */
   { "BMI",     format_6,  OP_BMI	},
