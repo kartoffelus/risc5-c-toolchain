@@ -31,3 +31,7 @@ extern double d2;
 double d3 = 3.1415926;
 static double d4;
 static double d5 = 2.7182818;
+
+int main(void) {
+  return 0;
+}

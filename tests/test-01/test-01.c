@@ -54,3 +54,8 @@ int f7(int x, int y) {
   c = f5(a + b, a - b);
   return c;
 }
+
+
+int main(void) {
+  return 0;
+}
