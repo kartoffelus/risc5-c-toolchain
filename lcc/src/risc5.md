@@ -250,7 +250,6 @@ addr:	ADDI4(reg,acon)		"R%0,%1"
 addr:	ADDP4(reg,acon)		"R%0,%1"
 addr:	ADDU4(reg,acon)		"R%0,%1"
 
-addr:	acon			"%0"
 addr:	reg			"R%0,0"
 addr:	ADDRFP4			"R14,%a+%F"
 addr:	ADDRLP4			"R14,%a+%F"
@@ -377,23 +376,23 @@ stmt:	ASGNB(reg,INDIRB(reg))	"# asgnb %0 %1\n"	1
 reg:	INDIRF4(VREGP)		"# read register\n"
 stmt:	ASGNF4(VREGP,reg)	"# write register\n"
 reg:	INDIRF4(addr)		"\tLDW\tR%c,%0\n"	1
-stmt:	ASGNF4(addr,reg)	"\tstw\t$%1,%0\n"	1
-reg:	LOADF4(reg)		"\tadd\t$%c,$0,$%0\n"	move(a)
-reg:	ADDF4(reg,reg)		"\taddf\t$%c,$%0,$%1\n"	1
-reg:	SUBF4(reg,reg)		"\tsubf\t$%c,$%0,$%1\n"	1
-reg:	MULF4(reg,reg)		"\tmulf\t$%c,$%0,$%1\n"	1
-reg:	DIVF4(reg,reg)		"\tdivf\t$%c,$%0,$%1\n"	1
-reg:	NEGF4(reg)		"\tnegf\t$%c,$%0\n"	1
+stmt:	ASGNF4(addr,reg)	"\tSTW\tR%1,%0\n"	1
+reg:	LOADF4(reg)		"\tMOV\tR%c,R%0\n"	move(a)
+reg:	ADDF4(reg,reg)		"\tFAD\tR%c,R%0,R%1\n"	1
+reg:	SUBF4(reg,reg)		"\tFSB\tR%c,R%0,R%1\n"	1
+reg:	MULF4(reg,reg)		"\tFML\tR%c,R%0,R%1\n"	1
+reg:	DIVF4(reg,reg)		"\tFDV\tR%c,R%0,R%1\n"	1
+reg:	NEGF4(reg)		"\tXOR\tR%c,R%0,0x80000000\n"		1
 reg:	CVFF4(reg)		"# cvt d2s\n"		1
-reg:	CVIF4(reg)		"\tcif\t$%c,$%0\n"	1
-reg:	CVFI4(reg)		"\tcfit\t$%c,$%0\n"	1
-stmt:	EQF4(reg,reg)		"\teqf\t$%0,$%1\n\tbfpt %a\n"	1
-stmt:	NEF4(reg,reg)		"\tnef\t$%0,$%1\n\tbfpt %a\n"	1
-stmt:	LEF4(reg,reg)		"\tulef\t$%0,$%1\n\tbfpt %a\n"	1
-stmt:	LTF4(reg,reg)		"\tultf\t$%0,$%1\n\tbfpt %a\n"	1
-stmt:	GEF4(reg,reg)		"\tugef\t$%0,$%1\n\tbfpt %a\n"	1
-stmt:	GTF4(reg,reg)		"\tugtf\t$%0,$%1\n\tbfpt %a\n"	1
-reg:	CALLF4(ar)		"\tjal\t%0\n"		1
+reg:	CVIF4(reg)		"\tFLT\tR%c,R%0\n"	1
+reg:	CVFI4(reg)		"\tFLR\tR%c,R%0\n"	1
+stmt:	EQF4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBEQ\t%a\n"	2
+stmt:	NEF4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBNE\t%a\n"	2
+stmt:	LEF4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLE\t%a\n"	2
+stmt:	LTF4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLT\t%a\n"	2
+stmt:	GEF4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGE\t%a\n"	2
+stmt:	GTF4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGT\t%a\n"	2
+reg:	CALLF4(ar)		"\tC\t%0\n"		1
 stmt:	RETF4(reg)		"# ret\n"		1
 stmt:	ARGF4(reg)		"# arg\n"		1
 
