@@ -282,8 +282,8 @@ reg:	INDIRU1(addr)		"\tLDB\tR%c,%0\n"	1
 reg:	INDIRU2(addr)		"\tLDH\tR%c,%0\n"	1
 reg:	INDIRU4(addr)		"\tLDW\tR%c,%0\n"	1
 
-reg:	CVII4(INDIRI1(addr))	"\tLDB\tR%c,%0\n\tLSL\tR%c,R%c,24\n\tASR\tR%c,R%c,24\n"	1
-reg:	CVII4(INDIRI2(addr))	"\tLDH\tR%c,%0\n\tLSL\tR%c,R%c,16\n\tASR\tR%c,R%c,16\n"	1
+reg:	CVII4(INDIRI1(addr))	"\tLDB\tR%c,%0\n\tLSL\tR%c,R%c,24\n\tASR\tR%c,R%c,24\n"  3
+reg:	CVII4(INDIRI2(addr))	"\tLDH\tR%c,%0\n\tLSL\tR%c,R%c,16\n\tASR\tR%c,R%c,16\n"  3
 reg:	CVUU4(INDIRU1(addr))	"\tLDB\tR%c,%0\n"	1
 reg:	CVUU4(INDIRU2(addr))	"\tLDH\tR%c,%0\n"	1
 reg:	CVUI4(INDIRU1(addr))	"\tLDB\tR%c,%0\n"	1
@@ -298,7 +298,7 @@ reg:	ADDU4(reg,rc)		"\tADD\tR%c,R%0,%1\n"	1
 reg:	SUBI4(reg,rc)		"\tSUB\tR%c,R%0,%1\n"	1
 reg:	SUBP4(reg,rc)		"\tSUB\tR%c,R%0,%1\n"	1
 reg:	SUBU4(reg,rc)		"\tSUB\tR%c,R%0,%1\n"	1
-reg:	NEGI4(reg)		"\tMOV\tR12,0\n\tSUB\tR%c,R12,R%0\n"	1
+reg:	NEGI4(reg)		"\tMOV\tR12,0\n\tSUB\tR%c,R12,R%0\n"	2
 
 reg:	MULI4(reg,rc)		"\tMUL\tR%c,R%0,%1\n"	1
 reg:	MULU4(reg,rc)		"\tMULU\tR%c,R%0,%1\n"	1
@@ -340,18 +340,18 @@ stmt:	LABELV			"%a:\n"
 stmt:	JUMPV(acon)		"\tB\t%0\n"		1
 stmt:	JUMPV(reg)		"\tB\tR%0\n"		1
 
-stmt:	EQI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBEQ\t%a\n"	1
-stmt:	EQU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBEQ\t%a\n"	1
-stmt:	NEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBNE\t%a\n"	1
-stmt:	NEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBNE\t%a\n"	1
-stmt:	LEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLE\t%a\n"	1
-stmt:	LEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLS\t%a\n"	1
-stmt:	LTI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLT\t%a\n"	1
-stmt:	LTU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBCS\t%a\n"	1
-stmt:	GEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGE\t%a\n"	1
-stmt:	GEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBCC\t%a\n"	1
-stmt:	GTI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGT\t%a\n"	1
-stmt:	GTU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBHI\t%a\n"	1
+stmt:	EQI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBEQ\t%a\n"	2
+stmt:	EQU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBEQ\t%a\n"	2
+stmt:	NEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBNE\t%a\n"	2
+stmt:	NEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBNE\t%a\n"	2
+stmt:	LEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLE\t%a\n"	2
+stmt:	LEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLS\t%a\n"	2
+stmt:	LTI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBLT\t%a\n"	2
+stmt:	LTU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBCS\t%a\n"	2
+stmt:	GEI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGE\t%a\n"	2
+stmt:	GEU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBCC\t%a\n"	2
+stmt:	GTI4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBGT\t%a\n"	2
+stmt:	GTU4(reg,reg)		"\tSUB\tR12,R%0,R%1\n\tBHI\t%a\n"	2
 
 reg:	CALLI4(ar)		"\tC\t%0\n"		1
 reg:	CALLP4(ar)		"\tC\t%0\n"		1
