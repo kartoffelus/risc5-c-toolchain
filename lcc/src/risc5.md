@@ -303,8 +303,8 @@ reg:	MULI4(reg,rc)		"\tMUL\tR%c,R%0,%1\n"	1
 reg:	MULU4(reg,rc)		"\tMULU\tR%c,R%0,%1\n"	1
 reg:	DIVI4(reg,rc)		"\tDIV\tR%c,R%0,%1\n"	1
 reg:	DIVU4(reg,rc)		"\tDIVU\tR%c,R%0,%1\n"	1
-reg:	MODI4(reg,rc)		"\trem\t$%c,$%0,%1\n"	1
-reg:	MODU4(reg,rc)		"\tremu\t$%c,$%0,%1\n"	1
+reg:	MODI4(reg,rc)		"\tDIV\tR12,R%0,%1\n\tGETS\tR%c,1\n"	2
+reg:	MODU4(reg,rc)		"\tDIVU\tR12,R%0,%1\n\tGETS\tR%c,1\n"	2
 
 reg:	BANDI4(reg,rc)		"\tAND\tR%c,R%0,%1\n"	1
 reg:	BANDU4(reg,rc)		"\tAND\tR%c,R%0,%1\n"	1
