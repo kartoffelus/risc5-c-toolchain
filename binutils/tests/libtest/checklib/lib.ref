@@ -1,0 +1,47 @@
+Library contents:
+    0:
+        name   = debug.o
+        offset = 0x00000000
+        size   = 0x0000009C
+        nsyms  = 1
+                 debugBreak
+    1:
+        name   = getput.o
+        offset = 0x0000009C
+        size   = 0x0000023B
+        nsyms  = 3
+                 getchar
+                 putchar
+                 puts
+    2:
+        name   = printf.o
+        offset = 0x000002D7
+        size   = 0x000019A2
+        nsyms  = 4
+                 printf
+                 sprintf
+                 vprintf
+                 vsprintf
+    3:
+        name   = qsort.o
+        offset = 0x00001C79
+        size   = 0x00000407
+        nsyms  = 1
+                 qsort
+    4:
+        name   = string.o
+        offset = 0x00002080
+        size   = 0x00000863
+        nsyms  = 6
+                 strcat
+                 strchr
+                 strcmp
+                 strcpy
+                 strlen
+                 strtok
+    5:
+        name   = strtoul.o
+        offset = 0x000028E3
+        size   = 0x00000711
+        nsyms  = 1
+                 strtoul
