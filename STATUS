@@ -5,25 +5,43 @@ Current status of development
 1) RISC5 simulator
    sim				done
 
-2) RISC5 C compiler
-   lcc				started
+2) Serial line communication program
+   sercomm			done
 
-3) RISC5 hardware
+3) C compiler
+   lcc				mostly done
+
+4) Hardware
    fpga				not yet
 
-4) RISC5 documentation
+5) Documentation
    doc				not yet
 
-5) RISC5 binutils
+6) Binary utilities
    include			done
-   asm				started
+   asm				done
    dump				done
-   link				started
+   link				done
    load				done
-   mklib			not yet
+   mklib			done
 
-6) RISC5 tools
-   bin2mem			done
-   cmpx				done
-   mem2bin			done
+7) Bootstrap
+   boot				preliminary
+
+8) Library
+   lib				minimal version done
+
+9) Standalone programs
+   blinkintr			done
+   blinkpoll			done
+   echo				done
+   hello			done
+   hello2			done
+   memtest			done
+   sdctest			?
+
+10) Tools
+    bin2mem			done
+    cmpx			done
+    mem2bin			done
 
