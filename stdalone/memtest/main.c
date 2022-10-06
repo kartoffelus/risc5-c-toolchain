@@ -1,5 +1,5 @@
 /*
- * main.c -- ECO32 memory test
+ * main.c -- RISC5 memory test
  */
 
 
