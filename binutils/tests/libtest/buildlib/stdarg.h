@@ -7,35 +7,31 @@
 #define _STDARG_H_
 
 
+#ifndef _VA_LIST_DEFINED_
+#define _VA_LIST_DEFINED_
 typedef char *va_list;
+#endif
 
 
-static float __va_arg_tmp;
+#define va_start(list,last)	((void) ((list) = ( \
+				    sizeof(last) < 4 ? \
+				      (char *) ((int *) &(last) + 1) : \
+				      (char *) (&(last) + 1) \
+				  )))
 
+#define _va_arg_size(type)	((sizeof(type) + 3) & ~3U)
+#define _va_arg_1(list,type)	(* (type *) (&(list += 4)[-4]))
+#define _va_arg_2(list,type)	(* (type *) (&(list += 4)[-4]))
+#define _va_arg_n(list,type)	(* (type *) (&(list += _va_arg_size(type)) \
+				    [- (int) _va_arg_size(type)]))
 
-#define va_start(list, start) \
-	((void)((list) = (sizeof(start)<4 ? \
-	(char *)((int *)&(start)+1) : (char *)(&(start)+1))))
+#define va_arg(list,type)	(sizeof(type) == 1 ? \
+				    _va_arg_1(list, type) : \
+				 sizeof(type) == 2 ? \
+				    _va_arg_2(list, type) : \
+				    _va_arg_n(list,type))
 
-#define __va_arg(list, mode, n) \
-	(__typecode(mode)==1 && sizeof(mode)==4 ? \
-	(__va_arg_tmp = *(double *)(&(list += \
-	((sizeof(double)+n)&~n))[-(int)((sizeof(double)+n)&~n)]), \
-	*(mode *)&__va_arg_tmp) : \
-	*(mode *)(&(list += \
-	((sizeof(mode)+n)&~n))[-(int)((sizeof(mode)+n)&~n)]))
-
-#define _bigendian_va_arg(list, mode, n) \
-	(sizeof(mode)==1 ? *(mode *)(&(list += 4)[-1]) : \
-	sizeof(mode)==2 ? *(mode *)(&(list += 4)[-2]) : \
-	__va_arg(list, mode, n))
-
-#define va_end(list) ((void)0)
-
-#define va_arg(list, mode) \
-	(sizeof(mode)==8 ? \
-	*(mode *)(&(list = (char*)(((int)list + 15)&~7U))[-8]) : \
-	_bigendian_va_arg(list, mode, 3U))
+#define va_end(list)		((void) 0)
 
 
 #endif /* _STDARG_H_ */
