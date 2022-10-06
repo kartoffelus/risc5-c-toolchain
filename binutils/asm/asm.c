@@ -342,7 +342,6 @@ char *segName(int segment) {
 
 #define H16_NAME	"H16"
 #define L16_NAME	"L16"
-#define L20_NAME	"L20"
 #define R22_NAME	"R22"
 #define W32_NAME	"W32"
 
@@ -356,9 +355,6 @@ char *methodName(int method) {
       break;
     case RELOC_L16:
       name = L16_NAME;
-      break;
-    case RELOC_L20:
-      name = L20_NAME;
       break;
     case RELOC_R22:
       name = R22_NAME;

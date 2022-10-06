@@ -18,9 +18,8 @@
 
 #define RELOC_H16	0	/* write 16 bits with high part of value */
 #define RELOC_L16	1	/* write 16 bits with low part of value */
-#define RELOC_L20	2	/* write 20 bits with low part of value */
-#define RELOC_R22	3	/* write 22 bits with value relative to PC */
-#define RELOC_W32	4	/* write full 32 bit word with value */
+#define RELOC_R22	2	/* write 22 bits with value relative to PC */
+#define RELOC_W32	3	/* write full 32 bit word with value */
 #define RELOC_SYM	0x100	/* symbol flag, may be added to any RELOC */
 
 

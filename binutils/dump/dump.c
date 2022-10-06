@@ -361,9 +361,6 @@ void dumpRelocTable(void) {
       case RELOC_L16:
         printf("L16");
         break;
-      case RELOC_L20:
-        printf("L20");
-        break;
       case RELOC_R22:
         printf("R22");
         break;
