@@ -499,9 +499,6 @@ static Symbol argreg(int argno, int offset, int ty, int sz, int ty0) {
 }
 
 
-#define gen_roundup(x,n)	((((x) + ((n) - 1)) / (n)) * (n))
-
-
 static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
   int i;
   Symbol p, q;
@@ -514,17 +511,19 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
    * generate code
    */
   /* initialize */
-  usedmask[0] = usedmask[1] = 0;
-  freemask[0] = freemask[1] = 0x0000FFFF;
+  usedmask[0] = 0;
+  freemask[0] = 0x0000FFFF;
+  usedmask[1] = 0;
+  freemask[1] = 0;
   offset = 0;
   maxoffset = 0;
   maxargoffset = 0;
-  /* handle arguments */
+  /* assign locations for arguments */
   for (i = 0; callee[i] != NULL; i++) {
     p = callee[i];
     q = caller[i];
     assert(q != NULL);
-    offset = gen_roundup(offset, q->type->align);
+    offset = roundup(offset, q->type->align);
     p->x.offset = q->x.offset = offset;
     p->x.name = q->x.name = stringd(offset);
     r = argreg(i, offset, optype(ttob(q->type)),
@@ -532,7 +531,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     if (i < 3) {
       argregs[i] = r;
     }
-    offset = gen_roundup(offset + q->type->size, 4);
+    offset = roundup(offset + q->type->size, 4);
     if (variadic(f->type)) {
       p->sclass = AUTO;
     } else
@@ -560,10 +559,12 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     usedmask[IREG] |= ((unsigned) 1) << 15;
   }
   usedmask[IREG] &= 0x00008F00;
+  maxargoffset = roundup(maxargoffset, 4);
+  if (ncalls != 0 && maxargoffset < 16) {
+    maxargoffset = 16;
+  }
   sizeisave = 4 * bitcount(usedmask[IREG]);
-  assert(maxargoffset == gen_roundup(maxargoffset, 4));
-  assert(maxoffset == gen_roundup(maxoffset, 4));
-  framesize = maxargoffset + sizeisave + maxoffset;
+  framesize = roundup(maxargoffset + sizeisave + maxoffset, 16);
   /*
    * emit code
    */
@@ -591,7 +592,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
       saved += 4;
     }
   }
-  /* ??? arguments ??? */
+  /* save arguments */
   for (i = 0; i < 3 && callee[i] != NULL; i++) {
     r = argregs[i];
     if (r && r->x.regnode != callee[i]->x.regnode) {
@@ -604,9 +605,11 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
       assert(out->sclass != REGISTER || out->x.regnode);
       if (out->sclass == REGISTER &&
           (isint(out->type) || out->type == in->type)) {
+        /* save argument in a register */
         int outn = out->x.regnode->number;
         print("\tMOV\tR%d,R%d\n", outn, rn);
       } else {
+        /* save argument in stack */
         int off = in->x.offset + framesize;
         int n = (in->type->size + 3) / 4;
         int i;
@@ -619,8 +622,8 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
   /* ??? variadic function ??? */
   if (variadic(f->type) && callee[i - 1] != NULL) {
     i = callee[i - 1]->x.offset + callee[i - 1]->type->size;
-    for (i = gen_roundup(i, 4)/4; i <= 3; i++) {
-      print("\tstw\t$%d,$29,%d\n", i + 4, framesize + 4 * i);
+    for (i = roundup(i, 4)/4; i <= 2; i++) {
+      print("\tSTW\tR%d,R14,%d\n", i + 1, framesize + 4 * i);
     }
   }
   /* emit code for func/proc body */
@@ -696,7 +699,7 @@ static void progbeg(int argc, char *argv[]) {
   vmask[IREG] = INTVAR;
   tmask[FREG] = 0;
   vmask[FREG] = 0;
-  blkreg = mkreg("8", 8, 7, IREG);
+  blkreg = mkreg("4", 4, 7, IREG);
 }
 
 
@@ -834,7 +837,7 @@ static void emit2(Node p) {
       q = argreg(p->x.argno, p->syms[2]->u.c.v.i, ty, sz, ty0);
       src = getregnum(p->x.kids[0]);
       if (q == NULL) {
-        print("\tstw\t$%d,$29,%d\n", src, p->syms[2]->u.c.v.i);
+        print("\tSTW\tR%d,R14,%d\n", src, p->syms[2]->u.c.v.i);
       }
       break;
     case ASGN+B:
