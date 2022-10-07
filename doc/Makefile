@@ -7,4 +7,4 @@ all:
 install:
 
 clean:
-		rm -f *~
+		rm -f *~ wirth/*~
