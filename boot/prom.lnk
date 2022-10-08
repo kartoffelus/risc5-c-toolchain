@@ -1,0 +1,25 @@
+#
+# prom.lnk -- PROM linker script
+#
+
+ENTRY _bcode;
+
+. = 0xFFE000;
+OSEG .code [APX] {
+  _bcode = .;
+  ISEG .code;
+  _ecode = .;
+}
+
+. = 0xFF8000;
+OSEG .data [APW] {
+  _bdata = .;
+  ISEG .data;
+  _edata = .;
+}
+
+OSEG .bss [AW] {
+  _bbss = .;
+  ISEG .bss;
+  _ebss = .;
+}
