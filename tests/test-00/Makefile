@@ -15,13 +15,13 @@ all:		$(BIN) $(MEM)
 install:	$(BIN) $(MEM)
 
 boot:
-		$(BUILD)/bin/sim -p $(BUILD)/prom/boot.mem -s 003
+		$(BUILD)/bin/sim -p $(BUILD)/prom/boot.mem -s 001
 
 boot-connect:	$(BIN)
 		$(BUILD)/bin/sercomm $(BIN)
 
 run:		$(MEM)
-		$(BUILD)/bin/sim -i -r $(MEM) -s 003
+		$(BUILD)/bin/sim -i -r $(MEM) -s 001
 
 run-connect:
 		$(BUILD)/bin/sercomm
