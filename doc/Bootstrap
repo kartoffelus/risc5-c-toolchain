@@ -1,0 +1,57 @@
+
+Bootstrap Loader
+----------------
+
+The bootstrap loader is a program located in "PROM", i.e., in a small
+block RAM within the FPGA (or the simulator) at address 0xFFE000. This
+is also the "reset address" where the CPU begins execution after either
+power-on or reset. The bootstrap loader is written into the memory when
+the FPGA configuration is loaded (or with the command-line argument
+"-p <PROM>" in the simulator).
+
+The purpose of the bootstrap loader is to load the program, which the
+RISC5 CPU should eventually run, into main memory. There are two possible
+sources for the program which is to be loaded: either it is transferred
+over a serial line (rather slow), or it is read from an SD card (to which
+it has been written beforehand). The source is chosen with switch SW0 on
+the board (in the simulator: command-line argument "-s <3 nibbles>").
+
+Note: In the simulator, there is a third possibility to get a program
+into main memory. The command-line argument "-r <RAM>" loads the memory
+directly with the binary file <RAM>. In the real world however, there is
+no magic - this is of course not possible with the actual FPGA board.
+
+
+
+Serial Line Bootstrap
+---------------------
+
+The program "sercomm", running on any computer connected to the other side
+of the serial line, is essentially a terminal emulator: it sends keyboard
+input over the serial line and displays characters arriving over the line
+on the screen. But it is also able to send a binary file over the line
+before entering terminal emulation mode, observing the following protocol.
+
+1. Reset board / start simulator, with bootstrap loaded and SW0 set to ON.
+2. Start sercomm.
+3. sercomm sends n (unsigned integer), the number of bytes to transfer.
+4. sercomm sends addr (unsigned integer), the load address.
+5. sercomm sends exactly n bytes of data, to be loaded beginning at addr.
+6. sercomm repeats steps 3, 4, and 5, until there is no data left.
+7. sercomm sends n = 0, signalling end of transfer.
+8. The bootstrap loader responds with a single byte of 0x10 ("ACK").
+9. sercomm enters terminal emulation mode.
+
+Integers are transmitted as 4 bytes, least significand byte first.
+
+
+
+SD Card Bootstrap
+-----------------
+
+1. With the help of an SD card writer, prepare the SD card.
+2. Insert the SD card into the card slot of the board.
+3. Reset board / start simulator, with bootstrap loaded and SW0 set to OFF.
+
+Details are t.b.d.
+
