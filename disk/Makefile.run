@@ -1,0 +1,18 @@
+#
+# Makefile to build a bootable disk
+#
+
+BUILD = ..
+
+DSK_IMG = disk.img
+DSK_SIZ = 100M
+DSK_MBR = mbr.bin
+
+all:		$(DSK_IMG)
+
+$(DSK_IMG):
+		$(BUILD)/bin/mkdisk $(DSK_IMG) $(DSK_SIZ)
+		dd if=$(DSK_MBR) of=$(DSK_IMG) bs=512 count=1 conv=notrunc
+
+clean:
+		rm -f *~ $(DSK_IMG)
