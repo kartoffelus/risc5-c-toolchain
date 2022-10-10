@@ -1498,27 +1498,26 @@ void format_5(unsigned int code) {
 void format_6(unsigned int code) {
   int reg;
   Value v;
-  unsigned int off;
+  unsigned int tgt;
 
   if (token == TOK_REGISTER) {
     reg = tokenvalNumber;
     getToken();
     emitWord(code | reg);
   } else {
-    /* set u-bit */
-    code |= U_BIT;
     v = parseExpression();
-    off = v.con;
+    tgt = v.con;
     if (v.sym == NULL) {
-      off -= segPtr[currSeg] + 4;
-      if (off & 3) {
-        warning("branch distance is not a multiple of 4 in line %d", lineno);
+      /* numeric target */
+      emitWord(OP_MOVH | (AUX << 24) | (tgt >> 16));
+      if ((tgt & 0x0000FFFF) != 0x00000000) {
+        emitWord(OP_IORI | (AUX << 24) | (AUX << 20) | (tgt & 0x0000FFFF));
       }
-      off >>= 2;
-      emitWord(code | (off & 0x003FFFFF));
+      emitWord(code | AUX);
     } else {
+      /* symbolic target */
       addFixup(currSeg, segPtr[currSeg], RELOC_R22, v.sym, v.con);
-      emitWord(code);
+      emitWord(code | U_BIT);
     }
   }
 }
