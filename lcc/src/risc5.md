@@ -316,7 +316,7 @@ reg:	BCOMI4(reg)		"\tXOR\tR%c,R%0,-1\n"	1
 reg:	BCOMU4(reg)		"\tXOR\tR%c,R%0,-1\n"	1
 
 rc5:	CNSTI4			"%a"			range(a, 0, 31)
-rc5:	reg			"$%0"
+rc5:	reg			"R%0"
 
 reg:	LSHI4(reg,rc5)		"\tLSL\tR%c,R%0,%1\n"	1
 reg:	LSHU4(reg,rc5)		"\tLSL\tR%c,R%0,%1\n"	1
