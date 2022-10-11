@@ -14,10 +14,8 @@ all:		$(MEM)
 
 install:	$(MEM)
 		mkdir -p $(BUILD)/prom
-		cp boot.mem $(BUILD)/prom
-
-run:		$(MEM)
-		$(BUILD)/bin/sim -i -p $(MEM) -s 001
+		cp $(MEM) $(BUILD)/prom
+		cp $(MAP) $(BUILD)/prom
 
 $(MEM):		$(BIN)
 		$(BUILD)/bin/bin2mem $(BIN) $(MEM)
