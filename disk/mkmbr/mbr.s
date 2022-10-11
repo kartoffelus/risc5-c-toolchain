@@ -11,7 +11,7 @@
 	.GLOBAL	start
 	.GLOBAL	main
 	.GLOBAL	out
-	.GLOBAL	hello
+	.GLOBAL	msg
 
 	// minimal execution environment
 start:
@@ -25,7 +25,7 @@ main:
 	SUB	R14,R14,8		// create stack frame
 	STW	R15,R14,0		// save return address
 	STW	R8,R14,4		// save register variable
-	MOV	R8,hello		// pointer to string
+	MOV	R8,msg			// pointer to string
 loop:
 	LDB	R1,R8,0			// get char
 	BEQ	stop			// null - finished
@@ -49,13 +49,17 @@ out1:
 	STW	R1,R4,0			// send char
 	B	R15			// return
 
-	// a very famous little string...
-hello:
+	// this dummy MBR only sends a message
+msg:
 	.BYTE	0x0D, 0x0A
-	.BYTE	"Hello, world!"
+	.BYTE	"This is a dummy MBR which "
+	.BYTE	"cannot load any program."
+	.BYTE	0x0D, 0x0A
+	.BYTE	"Please replace with a real "
+	.BYTE	"MBR as soon as possible!"
 	.BYTE	0x0D, 0x0A
 	.BYTE	0x0D, 0x0A, 0
 
-	.SPACE	0x182
+	.SPACE	0x128
 
 	.BYTE	0x55,0xAA
