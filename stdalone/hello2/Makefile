@@ -13,6 +13,9 @@ MEM = hello2.mem
 all:		$(BIN) $(MEM)
 
 install:	$(BIN) $(MEM)
+		mkdir -p $(BUILD)/stdalone
+		cp $(BIN) $(BUILD)/stdalone
+		cp $(MAP) $(BUILD)/stdalone
 
 boot:
 		$(BUILD)/bin/sim -p $(BUILD)/prom/boot.mem -s 001
