@@ -8,7 +8,15 @@ DSK_IMG = disk.img
 DSK_SIZ = 100M
 DSK_MBR = mbr.bin
 
+PROM = $(BUILD)/prom/boot.mem
+
 all:		$(DSK_IMG)
+
+run-0:		$(DSK_IMG)
+		$(BUILD)/bin/sim -i -p $(PROM) -s 000 -d $(DSK_IMG)
+
+run-1:
+		$(BUILD)/bin/sim -i -p $(PROM) -s 001
 
 $(DSK_IMG):
 		$(BUILD)/bin/mkdisk $(DSK_IMG) $(DSK_SIZ)
@@ -16,3 +24,4 @@ $(DSK_IMG):
 
 clean:
 		rm -f *~ $(DSK_IMG)
+		rm -f serial.dev
