@@ -19,8 +19,7 @@ the board (in the simulator: command-line argument "-s <3 nibbles>").
 Note: In the simulator, there is a third possibility to get a program
 into main memory. The command-line argument "-r <RAM>" loads the memory
 directly with the binary file <RAM>. In the real world however, there is
-no magic - this is of course not possible with the actual FPGA board.
-
+no magic - this is of course not possible with an FPGA board.
 
 
 Serial Line Bootstrap
@@ -32,26 +31,61 @@ input over the serial line and displays characters arriving over the line
 on the screen. But it is also able to send a binary file over the line
 before entering terminal emulation mode, observing the following protocol.
 
-1. Reset board / start simulator, with bootstrap loaded and SW0 set to ON.
-2. Start sercomm.
+1. Power-on and reset the board or start the simulator, with the bootstrap
+   loaded and SW0 set to ON.
+2. Start sercomm (specifying the name of the binary file as its argument).
 3. sercomm sends n (unsigned integer), the number of bytes to transfer.
 4. sercomm sends addr (unsigned integer), the load address.
-5. sercomm sends exactly n bytes of data, to be loaded beginning at addr.
+5. sercomm sends exactly n bytes of data. The bootstrap loader stores
+   these bytes in main memory, starting at addr.
 6. sercomm repeats steps 3, 4, and 5, until there is no data left.
 7. sercomm sends n = 0, signalling end of transfer.
-8. The bootstrap loader responds with a single byte of 0x10 ("ACK").
+8. The bootstrap loader responds with a single byte of 0x10 ("ACK"), and
+   jumps to address 0 in main memory. Any other answer means "failure".
 9. sercomm enters terminal emulation mode.
 
 Integers are transmitted as 4 bytes, least significand byte first.
 
 
-
 SD Card Bootstrap
 -----------------
 
-1. With the help of an SD card writer, prepare the SD card.
-2. Insert the SD card into the card slot of the board.
-3. Reset board / start simulator, with bootstrap loaded and SW0 set to OFF.
+1. Prepare a disk image with the help of the disk tools.
+   That's all if you want to use the simulator.
+   If you want to use the FPGA board, insert a blank SD card into
+   an USB SD card writer, and plug the USB device into the development
+   system. NOTE: Do not mount the device! Any file system on the device
+   will be overwritten. Now use "dd" to copy the disk image directly
+   to the USB device. NOTE: You have to do this as root. An error in
+   the output device specification can destroy the file system of your
+   development computer! The command is:
+     sudo dd if=disk.img of=/dev/???
+   Replace "???" by the device name of the USB SD card writer.
+   Remove the SD card from the USB SD card writer and insert it into the
+   card slot of the FPGA board.
+2. Power-on and reset the board or start the simulator, with the bootstrap
+   PROM loaded and SW0 set to OFF.
+3. The disk bootstrap loads the first sector (the "master boot record", or
+   MBR for short, 512 bytes) of the SD card into main memory at address 0.
+   It verifies the boot signature (0x55, 0xAA in the last two bytes of the
+   MBR), and jumps to address 0. In other words, whatever the MBR contains,
+   it gets executed, given the boot signature is present.
 
-Details are t.b.d.
+
+LED Indicators
+--------------
+
+Eight LEDs are used to indicate the progress of the bootstrap.
+1. After power-on, all LEDs are off.
+2. As soon as the bootstrap loader starts executing, the LEDs show
+   a pattern of 0x80 (8 bits, leftmost bit is ON, all others are OFF).
+3. SPI gets initialized and the switches are read. If switch 0 is ON
+   (i.e., loading from the serial line is requested), the LEDs change
+   to 0x81. If switch 0 is OFF (i.e., loading from disk is requested),
+   the LEDs change to 0x82. Then loading starts.
+4. In either case, if the loading succeeded, the LEDs change to 0x83,
+   and the processor executes a call to address 0.
+5. If the loading failed, or the started program at address 0 returns
+   for some reason, the LEDs are all turned on (0xFF), and the CPU
+   "is halted" (i.e., it executes an endless loop).
 
