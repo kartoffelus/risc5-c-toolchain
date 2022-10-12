@@ -2,43 +2,45 @@
 Current status of development
 -----------------------------
 
-1) RISC5 simulator
-   sim				done
+ 1) RISC5 simulator
+    sim				done
 
-2) Serial line communication program
-   sercomm			done
+ 2) Serial line communication program
+    sercomm			done
 
-3) C compiler
-   lcc				mostly done
+ 3) Hardware
+    fpga			not yet
 
-4) Hardware
-   fpga				not yet
+ 4) Documentation
+    doc				started
 
-5) Documentation
-   doc				not yet
+ 5) Binary utilities
+    include			done
+    asm				done
+    dump			done
+    link			done
+    load			done
+    mklib			done
 
-6) Binary utilities
-   include			done
-   asm				done
-   dump				done
-   link				done
-   load				done
-   mklib			done
+ 6) C compiler
+    lcc				mostly done
 
-7) Bootstrap
-   boot				preliminary
+ 7) Bootstrap
+    boot			done
 
-8) Library
-   lib				minimal version done
+ 8) Library
+    include			minimal version done
+    libc			minimal version done
+    scripts			done
+    startup			done
 
-9) Standalone programs
-   blinkintr			done
-   blinkpoll			done
-   echo				done
-   hello			done
-   hello2			done
-   memtest			done
-   sdctest			?
+ 9) Standalone programs
+    blinkintr			done
+    blinkpoll			done
+    echo			done
+    hello			done
+    hello2			done
+    memtest			done
 
 10) Tools
     bin2mem			done
