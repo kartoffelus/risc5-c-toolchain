@@ -103,8 +103,10 @@ Machine Instructions
 // load/store memory instructions
 //
   LDW	<r1>,<r2>,<offset>	// load word: r1 <- mem[r2+offset]
+  LDH	<r1>,<r2>,<offset>	// load half: r1 <- mem[r2+offset]
   LDB	<r1>,<r2>,<offset>	// load byte: r1 <- mem[r2+offset]
   STW	<r1>,<r2>,<offset>	// store word: mem[r2+offset] <- r1
+  STH	<r1>,<r2>,<offset>	// store half: mem[r2+offset] <- r1
   STB	<r1>,<r2>,<offset>	// store byte: mem[r2+offset] <- r1
 
 //
