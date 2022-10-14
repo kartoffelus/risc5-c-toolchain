@@ -7,7 +7,8 @@ block RAM within the FPGA (or the simulator) at address 0xFFE000. This
 is also the "reset address" where the CPU begins execution after either
 power-on or reset. The bootstrap loader is written into the memory when
 the FPGA configuration is loaded (or with the command-line argument
-"-p <PROM>" in the simulator).
+"-p <PROM>" in the simulator, where <PROM> is a binary file converted
+to hardware memory format by the tool program bin2mem).
 
 The purpose of the bootstrap loader is to load the program, which the
 RISC5 CPU should eventually run, into main memory. There are two possible
@@ -18,8 +19,9 @@ the board (in the simulator: command-line argument "-s <3 nibbles>").
 
 Note: In the simulator, there is a third possibility to get a program
 into main memory. The command-line argument "-r <RAM>" loads the memory
-directly with the binary file <RAM>. In the real world however, there is
-no magic - this is of course not possible with an FPGA board.
+directly with the binary file <RAM>, which also must be in hardware memory
+format. In the real world however, there is no magic - this is of course
+not possible with an FPGA board.
 
 
 Serial Line Bootstrap
@@ -53,7 +55,7 @@ SD Card Bootstrap
 1. Prepare a disk image with the help of the disk tools.
    That's all if you want to use the simulator.
    If you want to use the FPGA board, insert a blank SD card into
-   an USB SD card writer, and plug the USB device into the development
+   a USB SD card writer, and plug the USB device into the development
    system. NOTE: Do not mount the device! Any file system on the device
    will be overwritten. Now use "dd" to copy the disk image directly
    to the USB device. NOTE: You have to do this as root. An error in
