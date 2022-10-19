@@ -2,90 +2,91 @@
 Questions and (partial) Answers
 -------------------------------
 
-Q: What is the byte order of RISC5?
-A: Little-endian
-S: Confirmed
+Q:    What is the endianness of RISC5?
+A:    Little-endian.
 
-Q: Is I/O memory-mapped?
-A: Yes
-S: Confirmed
+Q:    Is the memory byte- or word-addressed?
+A:    Byte-addressed.
 
-Q: What is the memory map of the system?
-A: See file 'MemoryMap'
-S: Confirmed
+Q:    What are the possible widths of memory accesses?
+A-v0: 32 bits (word), 8 bits (byte).
+A-v1: 32 bits (word), 16 bits (half), 8 bits (byte).
 
-Q: Does the PC hold a byte address or a word address?
-A: Although in Wirth's original RISC5 design this was a word address,
-   (22 bits wide), this has now changed. It is a byte address, but is
-   expected to be word-aligned (2 LSBs are zero).
-S: Confirmed
+Q:    What is the maximum addressing capability of RISC5?
+A:    An address comprises 24 bits, so this is 16 MBytes.
 
-Q: The first instruction fetch after reset is at which address?
-A: Memory address 0xFFE000
-S: Confirmed
+Q:    Is I/O memory-mapped?
+A:    Yes.
 
-Q: The memory is byte addressed. What happens if during a word access
-   the least significant two bits of the address are not both zero?
-A: ?
-S: ?
+Q:    What is the memory map of the system?
+A:    See file 'MemoryMap'.
 
-Q: What is the exact meaning of a branch (with link) to register R15?
-A: ?
-S: ?
+Q:    Does the PC hold a byte address or a word address?
+A-v0: Word address, 22 bits wide.
+A-v1: Byte address, 24 bits wide, word-aligned (2 LSBs are zero).
 
-Q: Is the link always stored or only in case the condition is true?
-A: Only in case the condition is true (RISC5.v):
-   assign regwr = ... | (BR & cond & v & ~stallX);
-S: ?
+Q:    The first instruction fetch after reset is at which address?
+A:    Memory address 0xFFE000.
 
-Q: Is the offset within memory instructions a signed offset?
-A: Yes
-S: Confirmed
+Q:    The memory is byte addressed. What happens if during a word access
+      the least significant two bits of the address are not both zero?
+A-v0: ?
+A-v1: ?
 
-Q: What is stored in the link register R15, a word or a byte address?
-A: The return address is stored as a byte address.
-S: Confirmed
+Q:    What is the exact meaning of a branch (with link) to register R15?
+A:    ?
 
-Q: A register's contents used as branch target: word or byte address?
-A: According to the previous question, this must be a byte address.
-S: Confirmed
+Q:    Is the link always stored or only in case the condition is true?
+A:    Only in case the condition is true.
 
-Q: What is the exact meaning of the C flag?
-A: ?
-S: ?
+Q:    Is the offset in memory instructions (format F2) sign-extended?
+A:    Yes.
 
-Q: Is it possible to load data from the PROM?
-A: No - very disappointing!
-S: Confirmed
+Q:    What is stored in the link register R15, a word or a byte address?
+A:    The return address is stored as a byte address.
 
-Q: What is the endianness of RISC5?
+Q:    A register's contents used as branch target: word or byte address?
+A:    According to the previous question, this must be a byte address.
 
-Q: Is the offset in memory instructions (format F2) sign-extended?
+Q:    What is the exact meaning of the C flag?
+A:    ?
 
-Q: The SUB instruction "also sets the C flag". How is this to be
-   interpreted? Example: compute 3-5. If you really subtract in
-   binary, the carry will be set. If you add -5 in 2's complement
-   representation, the carry will be cleared.
+Q:    Is it possible to load data from the PROM?
+A-v0: No - very disappointing!
+A-v1: ?
 
-Q: What happens on (synchronous) exceptions?
-   a) unaligned word access
-   b) unknown instruction
-   c) division by zero
-   d) floating-point overflow
-   e) floating-point underflow
+Q:    The SUB instruction "also sets the C flag". How is this to be
+      interpreted? Example: compute 3-5. If you really subtract in
+      binary, the carry will be set. If you add -5 in 2's complement
+      representation, the carry will be cleared.
+A:    ?
 
-Q: What happens exactly on interrupt?
+Q:    What happens on (synchronous) exceptions?
+      a) unaligned word access
+      b) unknown instruction
+      c) division by zero
+      d) floating-point overflow
+      e) floating-point underflow
+A:    ?
 
-Q: Are nested interrupts supported?
+Q:    What happens exactly on interrupt?
+      ?
 
-Q: Does STI delay the setting of intenb by one instruction?
-   Does RTI automatically set intenb?
-   If both questions are answered negatively, then there is
-   a race condition in the sequence (STI, RTI), with a nested
-   interrupt as a possible result.
+Q:    Are nested interrupts supported?
+      ?
 
-Q: Can external devices other than the timer interrupt?
+Q:    Does STI delay the setting of intenb by one instruction?
+      Does RTI automatically set intenb?
+      If both questions are answered negatively, then there is
+      a race condition in the sequence (STI, RTI), with a nested
+      interrupt as a possible result.
+A:    ?
 
-Q: Aren't all external devices grossly underspecified?
-A: Yes, but we are working on this... :-)
+Q:    Can external devices other than the timer interrupt?
+A-v0: No
+A-v1: Yes, up to a total of 16 interrupts
+
+Q:    Aren't all external devices grossly underspecified?
+A-v0: Yes, but...
+A-v1: ...we are working on this :-)
 
