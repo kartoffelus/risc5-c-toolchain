@@ -23,7 +23,7 @@
 
 #define SERDEV_FILE	"serial.dev"		/* serial dev file */
 
-#define CPU_VERSION	0x80			/* 8.0 */
+#define CPU_VERSION	0x81			/* 8.1 */
 #define CPU_ID		(CPU_VERSION)
 
 #define INST_PER_MSEC	17000			/* execution speed */
