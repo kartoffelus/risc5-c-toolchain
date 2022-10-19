@@ -142,13 +142,13 @@ F3:  | 110v | code |         --                | 0000 |  c   |
 
 Here u = 0, so the destination address is taken from register R.c.
 
-        4      4             24
+        4      4     2       22
      +------+------+------+------+------+------+------+------+
-F3:  | 111v | code |         off                             |
+F3:  | 111v | code | 00      off                             |
      +------+------+------+------+------+------+------+------+
 
-Here u = 1, so the destination address is PC + (1 + off) * 4.
-The offset is interpreted as a signed 24-bit number in two's
+Here u = 1, so the destination address is PC + 4 + off * 4.
+The offset is interpreted as a signed 22-bit number in two's
 complement representation.
 
 In both cases,
@@ -184,7 +184,12 @@ t.b.s.
 5. Devices
 ----------
 
-t.b.s.
+5.0 Millisecond Counter
+5.1 Switches and LEDs
+5.2 RS-232 (Serial Line)
+5.3 SPI (SD Card)
+5.4 PS/2 Keyboard and Mouse
+5.5 Video Controller
 
 
 References (in chronological order)
