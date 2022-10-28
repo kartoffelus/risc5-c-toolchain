@@ -1444,6 +1444,8 @@ static void handleInterrupts(void) {
         (pc << 0);
     /* disable interrupts */
     I = false;
+    /* reflect priority in PSW */
+    irqAck = priority;
     /* start service routine */
     pc = EXC_VECTOR;
   }
