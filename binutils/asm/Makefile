@@ -18,6 +18,7 @@ all:		$(BIN)
 install:	$(BIN)
 		mkdir -p $(BUILD)/bin
 		cp $(BIN) $(BUILD)/bin
+		cp asm.awk $(BUILD)/bin
 
 $(BIN):		$(OBJS)
 		$(CC) $(LDFLAGS) -o $(BIN) $(OBJS) $(LDLIBS)

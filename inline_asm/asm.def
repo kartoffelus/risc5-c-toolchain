@@ -1,0 +1,12 @@
+#
+# asm.def -- inline assembler definitions
+#
+
+BEGIN {
+  def["CLI"] = "\tCLI\n"
+  def["STI"] = "\tSTI\n"
+  def["INC_GLOBAL"] = "\tMOV\tR4,global\n" \
+                      "\tLDW\tR5,R4,0\n" \
+                      "\tADD\tR5,R5,1\n" \
+                      "\tSTW\tR5,R4,0\n"
+}

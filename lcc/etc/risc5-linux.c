@@ -48,6 +48,7 @@ char *as[] = {
   "-o", "$3",		/* assembler output file (object) */
   "$1",			/* other options handed through */
   "$2",			/* assembler input file (assembler) */
+  "", "",		/* reserved for "-i <inlinedefs>" */
   0
 };
 
@@ -73,6 +74,7 @@ extern char *concat(char *, char *);
  *   -Wo-nostdlib	do not use the standard libs and startup files
  *   -Wo-ldscript=...	specify linker script file name
  *   -Wo-ldmap=...	specify linker map file name
+ *   -Wo-asmdef=...	specify inline assembler definition file
  */
 int option(char *arg) {
   if (strcmp(arg, "-nostdinc") == 0) {
@@ -93,6 +95,11 @@ int option(char *arg) {
   if (strncmp(arg, "-ldmap=", 7) == 0) {
     ld[10] = "-m";
     ld[11] = arg + 7;
+    return 1;
+  }
+  if (strncmp(arg, "-asmdef=", 8) == 0) {
+    as[5] = "-i";
+    as[6] = arg + 8;
     return 1;
   }
   return 0;

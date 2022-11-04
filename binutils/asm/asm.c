@@ -176,6 +176,7 @@ typedef struct fixup {
 Bool debugToken = false;
 Bool debugEmit = false;
 Bool debugFixup = false;
+Bool debugIAS = false;
 
 FILE *inFile;
 FILE *outFile;
@@ -2189,11 +2190,50 @@ void writeAll(void) {
 
 /**************************************************************/
 
+/* inline assembler substitution */
+
+
+void doInlineAsmSubst(char *inName, char *iadName, char *myself) {
+  char awkName[LINE_SIZE];
+  char tmpName[LINE_SIZE];
+  char awkCommand[LINE_SIZE];
+  char *p;
+
+  strcpy(awkName, myself);
+  p = awkName + strlen(awkName);
+  while (p != awkName && *p != '/') {
+    p--;
+  }
+  if (*p == '/') {
+    p++;
+  }
+  strcpy(p, "asm.awk");
+  sprintf(tmpName, "%s.tmp", inName);
+  sprintf(awkCommand,
+          "awk -f %s -f %s %s >%s",
+          iadName, awkName, inName, tmpName);
+  if (debugIAS) {
+    printf("DEBUG: inline assembler substitution\n");
+    printf("DEBUG: %s\n", awkCommand);
+    printf("DEBUG: rm %s\n", inName);
+    printf("DEBUG: mv %s %s\n", tmpName, inName);
+  }
+  system(awkCommand);
+  remove(inName);
+  rename(tmpName, inName);
+}
+
+
+/**************************************************************/
+
 /* main program */
 
 
 void usage(char *myself) {
-  fprintf(stderr, "Usage: %s [-o <object file>] <input file>\n", myself);
+  fprintf(stderr, "Usage: %s\n", myself);
+  fprintf(stderr, "         [-o file]     set object file\n");
+  fprintf(stderr, "         [-i file]     set inline asm definition file\n");
+  fprintf(stderr, "         file          set input file\n");
   exit(1);
 }
 
@@ -2202,10 +2242,12 @@ int main(int argc, char *argv[]) {
   int i;
   char *inName;
   char *outName;
+  char *iadName;
 
   sortInstrTable();
   inName = NULL;
   outName = DFLT_OUT_NAME;
+  iadName = NULL;
   for (i = 1; i < argc; i++) {
     if (*argv[i] == '-') {
       /* option */
@@ -2214,6 +2256,12 @@ int main(int argc, char *argv[]) {
           usage(argv[0]);
         }
         outName = argv[++i];
+      } else
+      if (strcmp(argv[i], "-i") == 0) {
+        if (i == argc - 1) {
+          usage(argv[0]);
+        }
+        iadName = argv[++i];
       } else {
         usage(argv[0]);
       }
@@ -2227,6 +2275,9 @@ int main(int argc, char *argv[]) {
   }
   if (inName == NULL) {
     error("no input file");
+  }
+  if (iadName != NULL) {
+    doInlineAsmSubst(inName, iadName, argv[0]);
   }
   inFile = fopen(inName, "r");
   if (inFile == NULL) {
