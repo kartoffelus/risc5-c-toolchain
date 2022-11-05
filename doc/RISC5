@@ -184,11 +184,30 @@ t.b.s.
 5. Devices
 ----------
 
-5.0 Millisecond Counter
+5.0 Millisecond Timer/Counter
+The timer/counter counts milliseconds since hardware power-on, and
+occupies a single word at address 0xFFFFC0. Reading from this address
+returns the counter value, writing to the address is ignored. The device
+triggers interrupt 15 every time the counter changes. Reading the counter
+removes the interrupt.
+
 5.1 Switches and LEDs
+Switches and LEDs constitute the most basic user I/O peripherals. They
+occupy a single word at address 0xFFFFC4. Reading from this address
+returns the state of the 8 switches and 4 buttons, formatted as
+{ 20'bx, button[3:0], switch[7:0] }, which is Verilog's notation for
+a vector of 20 unknown bits, 4 bits for the buttons (pressed = 1),
+and 8 bits for the switches (up = on = 1). Writing to the same address
+sets the rightmost 8 red LEDs. The format is { 24'bx, led[7:0] }, which
+means that the 24 MSBs are ignored, while the 8 LSBs are written to the
+LEDs (1 = on). Currently this device doesn't trigger any interrupt.
+
 5.2 RS-232 (Serial Line)
+
 5.3 SPI (SD Card)
+
 5.4 PS/2 Keyboard and Mouse
+
 5.5 Video Controller
 
 
