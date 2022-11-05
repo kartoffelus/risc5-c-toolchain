@@ -203,6 +203,36 @@ means that the 24 MSBs are ignored, while the 8 LSBs are written to the
 LEDs (1 = on). Currently this device doesn't trigger any interrupt.
 
 5.2 RS-232 (Serial Line)
+The serial line RS232 is a very old communication standard, but it's still
+in use, especially with embedded systems. The communication transfers bytes,
+using an asynchronous bit-serial line protocol, i.e., the 8 bits of a byte
+are transferred serially (LSB first), framed by start and stop bits, which
+synchronize an otherwise free-running oscillator for the bit cells. The
+communication speed (several standardized baud rates are available) must
+be agreed upon outside the communication channel. Because one symbol on the
+line equals one bit transmitted/received, the baud rate equals the bit rate.
+This interface occupies two consecutive words at addresses 0xFFFFC8 (rx/tx
+data) and 0xFFFFCC (status/control). Both addresses can be read and written.
+0xFFFFC8, rd: receiver data in the 8 LSBs, valid only if rx_rdy = 1
+0xFFFFC8, wr: transmitter data in the 8 LSBs, allowed only if tx_rdy = 1
+0xFFFFCC, rd: status, in the form { 30'bx, tx_rdy, rx_rdy }
+              rx_rdy = 1 iff receiver has a character received
+              this bit is reset when the character is read from 0xFFFFC8
+              tx_rdy = 1 iff transmitter is ready to accept a character
+              this bit is reset when a character is written to 0xFFFFC8
+0xFFFFCC, wr: bit rate in the 3 LSBs, with encoding
+              000 =   2400 bps
+              001 =   4800 bps
+              010 =   9600 bps (default)
+              011 =  19200 bps
+              100 =  31250 bps
+              101 =  38400 bps
+              110 =  57600 bps
+              111 = 115200 bps
+The device is able to trigger interrupts 9 (receive) and 8 (transmit).
+The interrupt lines follow exactly the bits rx_rdy and tx_rdy, and thus
+the interrupt requests are reset under the conditions described above
+(reading a received character, writing a character to be transmitted).
 
 5.3 SPI (SD Card)
 
