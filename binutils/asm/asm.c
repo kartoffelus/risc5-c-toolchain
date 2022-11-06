@@ -2193,30 +2193,82 @@ void writeAll(void) {
 /* inline assembler substitution */
 
 
-char *doInlineAsmSubst(char *inName, char *iadName, char *myself) {
+static char *awkText =
+"#\n"
+"# asm.awk -- implement a poor man's variant of inline assembler\n"
+"#\n"
+"\n"
+"BEGIN {\n"
+"@\n"
+"}\n"
+"\n"
+"{\n"
+"  if ($1 != \".GLOBAL\" || substr($2,1,5) != \"_asm_\")\n"
+"  {\n"
+"    if ($1 == \"C\" && substr($2,1,5) == \"_asm_\")\n"
+"    {\n"
+"      printf def[substr($2,6)]\n"
+"    }\n"
+"    else\n"
+"    {\n"
+"      print $0\n"
+"    }\n"
+"  }\n"
+"  # else do nothing: suppress .GLOBAL declarations for _asm_xyz\n"
+"}\n"
+;
+
+
+char *doInlineAsmSubst(char *inName, char *iadName) {
   static char tmpName[LINE_SIZE];
   char awkName[LINE_SIZE];
-  char awkCommand[LINE_SIZE];
+  FILE *iadFile;
+  FILE *awkFile;
   char *p;
+  int c;
+  char awkCommand[LINE_SIZE];
 
   sprintf(tmpName, "%s.tmp", inName);
-  strcpy(awkName, myself);
-  p = awkName + strlen(awkName);
-  while (p != awkName && *p != '/') {
-    p--;
-  }
-  if (*p == '/') {
-    p++;
-  }
-  strcpy(p, "asm.awk");
-  sprintf(awkCommand,
-          "awk -f %s -f %s %s >%s",
-          iadName, awkName, inName, tmpName);
+  sprintf(awkName, "%s.awk", inName);
   if (debugIAS) {
-    printf("DEBUG: inline assembler substitution\n");
+    printf("DEBUG: inline assembler substitution files\n");
+    printf("DEBUG: inName = '%s', tmpName = '%s'\n", inName, tmpName);
+    printf("DEBUG: iadName = '%s', awkName = '%s'\n", iadName, awkName);
+  }
+  iadFile = fopen(iadName, "r");
+  if (iadFile == NULL) {
+    error("cannot open inline definition file '%s' for read", iadName);
+  }
+  awkFile = fopen(awkName, "w");
+  if (awkFile == NULL) {
+    error("cannot open AWK file '%s' for write", awkName);
+  }
+  /* copy AWK text to AWK file */
+  p = awkText;
+  while ((c = *p++) != '\0') {
+    if (c == '@') {
+      /* at character '@' include definition file */
+      while ((c = fgetc(iadFile)) != EOF) {
+        fputc(c, awkFile);
+      }
+    } else {
+      fputc(c, awkFile);
+    }
+  }
+  fclose(iadFile);
+  fclose(awkFile);
+  /* build up AWK command line */
+  sprintf(awkCommand, "awk -f %s %s >%s", awkName, inName, tmpName);
+  if (debugIAS) {
+    printf("DEBUG: inline assembler substitution command\n");
     printf("DEBUG: %s\n", awkCommand);
   }
+  /* execute */
   system(awkCommand);
+  if (!debugIAS) {
+    /* remove AWK file */
+    remove(awkName);
+  }
   return tmpName;
 }
 
@@ -2274,7 +2326,7 @@ int main(int argc, char *argv[]) {
     error("no input file");
   }
   if (iadName != NULL) {
-    inName = doInlineAsmSubst(inName, iadName, argv[0]);
+    inName = doInlineAsmSubst(inName, iadName);
   }
   inFile = fopen(inName, "r");
   if (inFile == NULL) {
@@ -2288,11 +2340,8 @@ int main(int argc, char *argv[]) {
   writeAll();
   fclose(inFile);
   fclose(outFile);
-  if (iadName != NULL) {
+  if (iadName != NULL && !debugIAS) {
     /* remove temporary file */
-    if (debugIAS) {
-      printf("DEBUG: remove %s\n", inName);
-    }
     remove(inName);
   }
   return 0;
