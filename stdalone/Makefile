@@ -4,7 +4,7 @@
 
 BUILD = ../build
 
-DIRS = blinkintr blinkpoll echo hello hello2 memtest
+DIRS = blinkintr blinkpoll echo hello hello2 lcdtest memtest
 
 .PHONY:		all install clean
 

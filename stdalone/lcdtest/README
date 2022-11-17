@@ -6,10 +6,8 @@ Here is a sequence to display the string "RISC5" on the LCD.
         |    30  |  initialize
      c  |        |
      8  |        |
-        |    30  |
      c  |        |
      8  |        |
-        |    30  |
      c  |        |
      8  |        |
         |    38  |  function set
