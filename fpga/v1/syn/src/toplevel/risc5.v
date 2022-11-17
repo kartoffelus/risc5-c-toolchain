@@ -50,7 +50,12 @@ module risc5(clk_in,
              key3_n,
              key2_n,
              key1_n,
-             sw
+             sw,
+             lcd_on,
+             lcd_en,
+             lcd_rw,
+             lcd_rs,
+             lcd_data
             );
 
     // clock and reset
@@ -105,6 +110,12 @@ module risc5(clk_in,
     input key2_n;
     input key1_n;
     input [17:0] sw;
+    // LCD
+    output lcd_on;
+    output lcd_en;
+    output lcd_rw;
+    output lcd_rs;
+    inout [7:0] lcd_data;
 
   // clk_rst
   wire clk_ok;				// clocks stable
@@ -154,6 +165,12 @@ module risc5(clk_in,
   wire kbd_stb;				// keyboard strobe
   wire [31:0] kbd_dout;			// keyboard data output
   wire kbd_ack;				// keyboard acknowledge
+  // extended i/o
+  wire x_i_o_stb;			// extended i/o strobe
+  // lcd
+  wire lcd_stb;				// LCD strobe
+  wire [31:0] lcd_dout;			// LCD data output
+  wire lcd_ack;				// LCD acknowledge
 
   //--------------------------------------
   // module instances
@@ -308,6 +325,22 @@ module risc5(clk_in,
     .mouse_data(ps2_1_data)
   );
 
+  lcd lcd_0(
+    .clk(clk),
+    .rst(rst),
+    .stb(lcd_stb),
+    .we(bus_we),
+    .addr(bus_addr[2]),
+    .data_in(bus_dout[31:0]),
+    .data_out(lcd_dout[31:0]),
+    .ack(lcd_ack),
+    .lcd_on(lcd_on),
+    .lcd_en(lcd_en),
+    .lcd_rw(lcd_rw),
+    .lcd_rs(lcd_rs),
+    .lcd_data(lcd_data[7:0])
+  );
+
   //--------------------------------------
   // address decoder (16 MB addr space)
   //--------------------------------------
@@ -341,6 +374,13 @@ module risc5(clk_in,
   assign kbd_stb =
     (i_o_stb == 1'b1 && bus_addr[5:3] == 3'b011) ? 1'b1 : 1'b0;
 
+  // extended I/O: 64 bytes (16 words) @ 0xFFFF80
+  assign x_i_o_stb =
+    (bus_stb == 1'b1 && bus_addr[23:8] == 16'hFFFF
+                     && bus_addr[7:6] == 2'b10) ? 1'b1 : 1'b0;
+  assign lcd_stb =
+    (x_i_o_stb == 1'b1 && bus_addr[5:3] == 3'b001) ? 1'b1 : 1'b0;
+
   //--------------------------------------
   // data and acknowledge multiplexers
   //--------------------------------------
@@ -353,6 +393,7 @@ module risc5(clk_in,
     ser_stb  ? ser_dout[31:0]  :
     sdc_stb  ? sdc_dout[31:0]  :
     kbd_stb  ? kbd_dout[31:0]  :
+    lcd_stb  ? lcd_dout[31:0]  :
     32'h00000000;
 
   assign bus_ack =
@@ -363,6 +404,7 @@ module risc5(clk_in,
     ser_stb  ? ser_ack  :
     sdc_stb  ? sdc_ack  :
     kbd_stb  ? kbd_ack  :
+    lcd_stb  ? lcd_ack  :
     1'b0;
 
   //--------------------------------------
