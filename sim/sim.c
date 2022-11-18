@@ -12,6 +12,7 @@
 #include <string.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include "common.h"
 #include "muldiv.h"
@@ -41,6 +42,8 @@
 #define ROM_SIZE	0x00000800		/* counted in bytes */
 #define IO_BASE		0x00FFFFC0		/* byte address */
 #define IO_SIZE		0x00000040		/* counted in bytes */
+#define XIO_BASE	0x00FFFF80		/* byte address */
+#define XIO_SIZE	0x00000040		/* counted in bytes */
 #define ADDR_MASK	0x00FFFFFF		/* 24-bit addresses */
 
 #define EXC_VECTOR	0x000004		/* exceptions land here */
@@ -132,6 +135,20 @@ Word readSwitches(void) {
 }
 
 
+static Word currentLEDs = -1;
+
+
+void showLEDs(void) {
+  int i;
+
+  printf("LED status:");
+  for (i = 7; i >= 0; i--) {
+    printf("  %s", currentLEDs & (1 << i) ? "ON " : "OFF");
+  }
+  printf("\n");
+}
+
+
 /*
  * write device 1:
  *     LEDs
@@ -139,17 +156,10 @@ Word readSwitches(void) {
  *     led: 1 = on
  */
 void writeLEDs(Word data) {
-  static Word currentLEDs = -1;
-  int i;
-
   data &= 0x000000FF;
   if (currentLEDs != data) {
     currentLEDs = data;
-    printf("LED change:");
-    for (i = 7; i >= 0; i--) {
-      printf("  %s", currentLEDs & (1 << i) ? "ON " : "OFF");
-    }
-    printf("\n");
+    showLEDs();
   }
 }
 
@@ -781,7 +791,271 @@ void writeIO(int dev, Word data) {
       writeGPIO_1(data);
       break;
     default:
-      error("writing to unknown I/O device %d, data = 0x%08X", dev, data);
+      error("writing to unknown I/O device %d, data = 0x%08X",
+            dev, data);
+      break;
+  }
+}
+
+
+/**************************************************************/
+
+/*
+ * Extended I/O devices 0, 1: high precision timer
+ */
+
+
+/*
+ * read extended device 0:
+ *     ignore, return 0
+ */
+Word readHPTdata(void) {
+  printf("data read from HPT\n");
+  return 0xDEADC0DE;
+}
+
+
+/*
+ * write extended device 0:
+ *     ignore
+ */
+void writeHPTdata(Word data) {
+  printf("data 0x%08X written to HPT\n", data);
+}
+
+
+/*
+ * read extended device 1:
+ *     ignore, return 0
+ */
+Word readHPTctrl(void) {
+  printf("status read from HPT\n");
+  return 0xF00DBABE;
+}
+
+
+/*
+ * write extended device 1:
+ *     ignore
+ */
+void writeHPTctrl(Word data) {
+  printf("control 0x%08X written to HPT\n", data);
+}
+
+
+void initHPT(void) {
+  printf("HPT initialized\n");
+}
+
+
+/**************************************************************/
+
+/*
+ * Extended I/O devices 2, 3: LCD
+ */
+
+
+#define LCD_ON		0x08
+#define LCD_EN		0x04
+#define LCD_RW		0x02
+#define LCD_RS		0x01
+
+
+static Bool debugLCDiface = true;
+static Bool debugLCDupdate = true;
+
+static Byte lcd_line[128];
+
+static Word data_ibuf = 0;	/* data/instr to be written to LCD */
+static Word data_obuf = 0;	/* data/status read from LCD */
+static Word ctrl_ibuf = 0;	/* control lines to LCD */
+
+
+void showLCD(void) {
+  Bool isOn;
+  int i;
+  Byte c;
+
+  isOn = (ctrl_ibuf & LCD_ON) != 0;
+  printf("LCD status:  +------------------+\n");
+  printf("             | ");
+  for (i = 0; i < 16; i++) {
+    c = isOn ? lcd_line[i] : ' ';
+    printf("%c", isprint(c) ? c : ' ');
+  }
+  printf(" |\n");
+  printf("             | ");
+  for (i = 64; i < 80; i++) {
+    c = isOn ? lcd_line[i] : ' ';
+    printf("%c", isprint(c) ? c : ' ');
+  }
+  printf(" |\n");
+  printf("             +------------------+\n");
+}
+
+
+void updateLCD(void) {
+  if (debugLCDupdate) {
+    printf("LCD update: ");
+    printf("on = %d, en = %d, rw = %d, rs = %d, data_in = 0x%02X",
+           ctrl_ibuf & LCD_ON ? 1 : 0,
+           ctrl_ibuf & LCD_EN ? 1 : 0,
+           ctrl_ibuf & LCD_RW ? 1 : 0,
+           ctrl_ibuf & LCD_RS ? 1 : 0,
+           data_ibuf);
+    printf("\n");
+  }
+  /* here we just had a falling EN edge */
+  if (ctrl_ibuf & LCD_RW) {
+    /* read */
+    if (ctrl_ibuf & LCD_RS) {
+      /* read data register */
+    } else {
+      /* read busy flag and address counter */
+    }
+  } else {
+    /* write */
+    if (ctrl_ibuf & LCD_RS) {
+      /* write data register */
+    } else {
+      /* write instruction register */
+    }
+  }
+}
+
+
+/*
+ * read extended device 2:
+ *     return data/status read from LCD
+ *     { 24'bx, data[7:0] }
+ */
+Word readLCDdata(void) {
+  return data_obuf;
+}
+
+
+/*
+ * write extended device 2:
+ *     store data/instr to be written to LCD
+ *     { 24'bx, data[7:0] }
+ */
+void writeLCDdata(Word data) {
+  data_ibuf = data & 0x000000FF;
+}
+
+
+/*
+ * read extended device 3:
+ *     return control lines to LCD
+ *     { 28'bx, on, en, rw, rs }
+ */
+Word readLCDctrl(void) {
+  return ctrl_ibuf;
+}
+
+
+/*
+ * write extended device 3:
+ *     write control lines to LCD
+ */
+void writeLCDctrl(Word data) {
+  Word ctrlChange;
+
+  ctrlChange = ctrl_ibuf ^ data;
+  ctrl_ibuf = data & 0x0000000F;
+  if (ctrlChange & LCD_ON) {
+    /* ON changed */
+    if (ctrl_ibuf & LCD_ON) {
+      /* ON raising edge */
+      if (debugLCDiface) {
+        printf("LCD: ON has raising edge\n");
+      }
+      showLCD();
+    } else {
+      /* ON falling edge */
+      if (debugLCDiface) {
+        printf("LCD: ON has falling edge\n");
+      }
+      showLCD();
+    }
+  }
+  if (ctrlChange & LCD_EN) {
+    /* EN changed */
+    if (ctrl_ibuf & LCD_EN) {
+      /* EN raising edge */
+      if (debugLCDiface) {
+        printf("LCD: EN has raising edge\n");
+      }
+      /* ignore EN raising edge */
+    } else {
+      /* EN falling edge */
+      if (debugLCDiface) {
+        printf("LCD: EN has falling edge\n");
+      }
+      /* call update for EN falling edge */
+      updateLCD();
+    }
+  }
+}
+
+
+void initLCD(void) {
+  memcpy(lcd_line +  0, "Welcome to RISC5", 16);
+  memcpy(lcd_line + 64, "   mni.thm.de   ", 16);
+  showLCD();
+}
+
+
+/**************************************************************/
+
+/*
+ * Extended I/O : address of device n = XIO_BASE + 4 * n
+ *                this can be expressed in decimal as -4 * (32 - n)
+ */
+
+
+Word readXIO(int dev) {
+  Word data;
+
+  switch (dev) {
+    case 0:
+      data = readHPTdata();
+      break;
+    case 1:
+      data = readHPTctrl();
+      break;
+    case 2:
+      data = readLCDdata();
+      break;
+    case 3:
+      data = readLCDctrl();
+      break;
+    default:
+      error("reading from unknown extended I/O device %d", dev);
+      data = 0;
+      break;
+  }
+  return data;
+}
+
+
+void writeXIO(int dev, Word data) {
+  switch (dev) {
+    case 0:
+      writeHPTdata(data);
+      break;
+    case 1:
+      writeHPTctrl(data);
+      break;
+    case 2:
+      writeLCDdata(data);
+      break;
+    case 3:
+      writeLCDctrl(data);
+      break;
+    default:
+      error("writing to unknown extended I/O device %d, data = 0x%08X",
+            dev, data);
       break;
   }
 }
@@ -817,6 +1091,9 @@ Word readWord(Word addr) {
   if (addr >= ROM_BASE && addr < ROM_BASE + ROM_SIZE) {
     return rom[(addr - ROM_BASE) >> 2];
   }
+  if (addr >= XIO_BASE && addr < XIO_BASE + XIO_SIZE) {
+    return readXIO((addr - XIO_BASE) >> 2);
+  }
   if (addr >= IO_BASE && addr < IO_BASE + IO_SIZE) {
     return readIO((addr - IO_BASE) >> 2);
   }
@@ -844,6 +1121,10 @@ void writeWord(Word addr, Word data) {
   if (addr >= ROM_BASE && addr < ROM_BASE + ROM_SIZE) {
     error("PROM write word @ 0x%08X, PC = 0x%08X",
           addr, cpuGetPC() - 4);
+  }
+  if (addr >= XIO_BASE && addr < XIO_BASE + XIO_SIZE) {
+    writeXIO((addr - XIO_BASE) >> 2, data);
+    return;
   }
   if (addr >= IO_BASE && addr < IO_BASE + IO_SIZE) {
     writeIO((addr - IO_BASE) >> 2, data);
@@ -1942,6 +2223,8 @@ static void help(void) {
   printf("  mh      show/set memory half\n");
   printf("  mb      show/set memory byte\n");
   printf("  ss      show/set switches\n");
+  printf("  led     show LEDs\n");
+  printf("  lcd     show LCD\n");
   printf("  q       quit simulator\n");
   printf("type 'help <cmd>' to get help for <cmd>\n");
 }
@@ -2528,6 +2811,34 @@ static void doSwitches(char *tokens[], int n) {
 }
 
 
+static void helpLED(void) {
+  printf("  led               show LEDs\n");
+}
+
+
+static void doLED(char *tokens[], int n) {
+  if (n == 1) {
+    showLEDs();
+  } else {
+    helpLED();
+  }
+}
+
+
+static void helpLCD(void) {
+  printf("  lcd               show LCD\n");
+}
+
+
+static void doLCD(char *tokens[], int n) {
+  if (n == 1) {
+    showLCD();
+  } else {
+    helpLCD();
+  }
+}
+
+
 static void helpQuit(void) {
   printf("  q                 quit simulator\n");
 }
@@ -2559,6 +2870,8 @@ Command commands[] = {
   { "mh",   helpMemoryHalf, doMemoryHalf },
   { "mb",   helpMemoryByte, doMemoryByte },
   { "ss",   helpSwitches,   doSwitches   },
+  { "led",  helpLED,        doLED        },
+  { "lcd",  helpLCD,        doLCD        },
   { "q",    helpQuit,       doQuit       },
 };
 
@@ -2686,6 +2999,8 @@ int main(int argc, char *argv[]) {
   initSPI(diskName);
   initMouseKeybd();
   initGPIO();
+  initHPT();
+  initLCD();
   graphInit();
   promInit(promName);
   ramInit(ramName);
