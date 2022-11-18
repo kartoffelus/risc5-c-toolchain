@@ -1067,7 +1067,7 @@ static Word pc;			/* program counter, as byte index */
 static Word reg[16];		/* general purpose registers */
 static Word ID;			/* special register for CPU identification */
 static Word H;			/* special register for mul/div */
-static Word X;			/* { 8'0, 24'pc } */
+static Word X;			/* interrupt program counter */
 static Bool N, Z, C, V, I;	/* flags */
 static unsigned irqAck;		/* interrupt last acknowledged */
 static unsigned irqMask;	/* one bit for each IRQ */
@@ -1359,6 +1359,7 @@ static void execNextInstruction(void) {
               break;
             case 1:
               /* return from interrupt */
+              /* restore PC from X register */
               pc = X & ADDR_MASK;
               /* enable interrupts */
               I = true;
@@ -1439,7 +1440,7 @@ static void handleInterrupts(void) {
       /* only done for exceptions, since interrupts are level-sensitive */
       irqPending &= ~((unsigned) 1 << priority);
     }
-    /* save interrupt PC */
+    /* save interrupt PC in X register */
     X = pc;
     /* disable interrupts */
     I = false;
@@ -1492,7 +1493,7 @@ Word cpuGetX(void) {
 
 
 void cpuSetX(Word value) {
-  X = value & 0xF8FFFFFF;
+  X = value;
 }
 
 
