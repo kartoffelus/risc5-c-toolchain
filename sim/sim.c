@@ -1348,7 +1348,7 @@ static Word pc;			/* program counter, as byte index */
 static Word reg[16];		/* general purpose registers */
 static Word ID;			/* special register for CPU identification */
 static Word H;			/* special register for mul/div */
-static Word X;			/* { 1'N, 1'Z, 1'C, 1'V, 1'I, 3'0, 24'pc } */
+static Word X;			/* interrupt program counter */
 static Bool N, Z, C, V, I;	/* flags */
 static unsigned irqAck;		/* interrupt last acknowledged */
 static unsigned irqMask;	/* one bit for each IRQ */
@@ -1640,12 +1640,10 @@ static void execNextInstruction(void) {
               break;
             case 1:
               /* return from interrupt */
-              N = (X >> 31) & 1;
-              Z = (X >> 30) & 1;
-              C = (X >> 29) & 1;
-              V = (X >> 28) & 1;
-              I = (X >> 27) & 1;
-              pc = (X >> 0) & ADDR_MASK;
+              /* restore PC from X register */
+              pc = X & ADDR_MASK;
+              /* enable interrupts */
+              I = true;
               break;
             case 2:
               /* interrupt disable/enable */
@@ -1723,13 +1721,8 @@ static void handleInterrupts(void) {
       /* only done for exceptions, since interrupts are level-sensitive */
       irqPending &= ~((unsigned) 1 << priority);
     }
-    /* save interrupt status */
-    X = ((Word) N << 31) |
-        ((Word) Z << 30) |
-        ((Word) C << 29) |
-        ((Word) V << 28) |
-        ((Word) I << 27) |
-        (pc << 0);
+    /* save interrupt PC in X register */
+    X = pc;
     /* disable interrupts */
     I = false;
     /* reflect priority in PSW */
@@ -1781,7 +1774,7 @@ Word cpuGetX(void) {
 
 
 void cpuSetX(Word value) {
-  X = value & 0xF8FFFFFF;
+  X = value;
 }
 
 
