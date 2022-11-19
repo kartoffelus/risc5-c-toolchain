@@ -5,7 +5,7 @@
 BUILD = ../../build
 
 #DIRS = abs alloc artest cycle errors relocs simple statlib
-DIRS = abs cycle
+DIRS = abi abs cycle
 
 all:
 		for i in $(DIRS) ; do \
