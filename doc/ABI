@@ -5,8 +5,8 @@ Application Binary Interface
 1. Register Usage
 -----------------
 
-  R0		function return value
-  R1   -  R3	procedure/function arguments
+  R0		function return value (caller-save)
+  R1   -  R3	procedure/function arguments (caller-save)
   R4   -  R7	temporary registers (caller-save)
   R8   -  R11	register variables (callee-save)
   R12		reserved for assembler
@@ -14,6 +14,6 @@ Application Binary Interface
   R14		stack pointer
   R15		procedure/function return address (hardware)
 
-caller-save registers are not preserved across procedure calls
-callee-save registers are preserved across procedure calls
+caller-save registers are not preserved by the callee across procedure calls
+callee-save registers are preserved by the callee across procedure calls
 
