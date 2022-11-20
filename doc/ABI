@@ -17,3 +17,16 @@ Application Binary Interface
 caller-save registers are not preserved by the callee across procedure calls
 callee-save registers are preserved by the callee across procedure calls
 
+
+2. Stack Frames
+---------------
+
+The stack grows downwards, toward lower addresses. When a function is
+called, the function's prologue reserves space for the local storage of
+the current activation of the function (the stack frame). The size of
+the stack frame is statically known, i.e., computed by the compiler. It
+is always an integer multiple of 4 Bytes. After the prologue has been
+executed, the stack pointer (R14) points to the lowest member of the
+stack frame just allocated. The function's epilogue releases the stack
+frame before returning to the caller.
+
