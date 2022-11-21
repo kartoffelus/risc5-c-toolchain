@@ -861,10 +861,18 @@ void initHPT(void) {
 #define LCD_RS		0x01
 
 
-static Bool debugLCDiface = true;
-static Bool debugLCDupdate = true;
+static Bool debugLCDupdate = false;
+static Bool debugLCDcommand = false;
 
 static Byte lcd_line[128];
+static Byte lcd_addr_cnt;
+static Bool lcd_cgram_acc;
+static Bool lcd_display_on;
+static Bool lcd_cursor_on;
+static Bool lcd_blink_on;
+static Bool lcd_inc;
+static Bool lcd_shift;
+static Bool lcd_busy_flg;
 
 static Word data_ibuf = 0;	/* data/instr to be written to LCD */
 static Word data_obuf = 0;	/* data/status read from LCD */
@@ -876,7 +884,7 @@ void showLCD(void) {
   int i;
   Byte c;
 
-  isOn = (ctrl_ibuf & LCD_ON) != 0;
+  isOn = ((ctrl_ibuf & LCD_ON) != 0) && lcd_display_on;
   printf("LCD status:  +------------------+\n");
   printf("             | ");
   for (i = 0; i < 16; i++) {
@@ -894,15 +902,100 @@ void showLCD(void) {
 }
 
 
-void updateLCD(void) {
+static void clear_display(void) {
+  int i;
+
+  if (debugLCDcommand) {
+    printf("LCD cmd: clear_display()\n");
+  }
+  for (i = 0; i < 128; i++) {
+    lcd_line[i] = ' ';
+  }
+  lcd_addr_cnt = 0;
+  lcd_cgram_acc = false;
+}
+
+
+static void return_home(void) {
+  if (debugLCDcommand) {
+    printf("LCD cmd: return_home()\n");
+  }
+  lcd_addr_cnt = 0;
+  lcd_cgram_acc = false;
+}
+
+
+static void entry_mode_set(Bool inc, Bool shift) {
+  if (debugLCDcommand) {
+    printf("LCD cmd: entry_mode_set(inc/dec = %s, shift = %s)\n",
+           inc ? "increment" : "decrement",
+           shift ? "yes" : "no");
+  }
+  lcd_inc = inc;
+  lcd_shift = shift;
+}
+
+
+static void on_off_ctrl(Bool dspl, Bool crsr, Bool blnk) {
+  if (debugLCDcommand) {
+    printf("LCD cmd: on_off_ctrl(display = %s, cursor = %s, blink = %s)\n",
+           dspl ? "on" : "off",
+           crsr ? "on" : "off",
+           blnk ? "on" : "off");
+  }
+  lcd_display_on = dspl;
+  lcd_cursor_on = crsr;
+  lcd_blink_on = blnk;
+}
+
+
+static void crsr_or_dspl_shift(Bool what, Bool dir) {
+  if (debugLCDcommand) {
+    printf("LCD cmd: crsr_or_dspl_shift(what = %s, direction = %s)\n",
+           what ? "display shift" : "cursor move",
+           dir ? "right" : "left");
+  }
+}
+
+
+static void function_set(Bool datawidth, Bool lines, Bool font) {
+  if (debugLCDcommand) {
+    printf("LCD cmd: function_set(data width = %s, lines = %s, font = %s)\n",
+           datawidth ? "8 bits" : "4 bits",
+           lines ? "2" : "1",
+           font ? "5x10" : "5x8");
+  }
+}
+
+
+static void set_CGRAM_address(int addr) {
+  if (debugLCDcommand) {
+    printf("LCD cmd: set_CGRAM_address(%d)\n", addr);
+  }
+  lcd_addr_cnt = addr;
+  lcd_cgram_acc = true;
+}
+
+
+static void set_DDRAM_address(int addr) {
+  if (debugLCDcommand) {
+    printf("LCD cmd: set_DDRAM_address(%d)\n", addr);
+  }
+  lcd_addr_cnt = addr;
+  lcd_cgram_acc = false;
+}
+
+
+static void updateLCD(void) {
   if (debugLCDupdate) {
     printf("LCD update: ");
-    printf("on = %d, en = %d, rw = %d, rs = %d, data_in = 0x%02X",
-           ctrl_ibuf & LCD_ON ? 1 : 0,
-           ctrl_ibuf & LCD_EN ? 1 : 0,
-           ctrl_ibuf & LCD_RW ? 1 : 0,
-           ctrl_ibuf & LCD_RS ? 1 : 0,
-           data_ibuf);
+    printf("%s %s register",
+           ctrl_ibuf & LCD_RW ? "read from" : "write to",
+           ctrl_ibuf & LCD_RS ? "data" : "instr/status");
+    if ((ctrl_ibuf & LCD_RW) == 0) {
+      /* on write, say what will be written */
+      printf(", data_in = 0x%02X", data_ibuf);
+    }
     printf("\n");
   }
   /* here we just had a falling EN edge */
@@ -910,17 +1003,95 @@ void updateLCD(void) {
     /* read */
     if (ctrl_ibuf & LCD_RS) {
       /* read data register */
+      if (lcd_cgram_acc) {
+        /* access to CGRAM */
+        /* not implemented */
+        data_obuf = 0;
+      } else {
+        /* access to DDRAM */
+        data_obuf = lcd_line[lcd_addr_cnt];
+      }
+      if (lcd_inc) {
+        lcd_addr_cnt++;
+      } else {
+        lcd_addr_cnt--;
+      }
     } else {
-      /* read busy flag and address counter */
+      /* read status (busy flag and address counter) */
+      data_obuf = (lcd_busy_flg & 1) | (lcd_addr_cnt & 0x7F);
+    }
+    if (debugLCDupdate) {
+      /* on read, say what has been read */
+      printf("    data_out = 0x%02X\n", data_obuf);
     }
   } else {
     /* write */
     if (ctrl_ibuf & LCD_RS) {
       /* write data register */
+      if (lcd_cgram_acc) {
+        /* access to CGRAM */
+        /* not implemented */
+      } else {
+        /* access to DDRAM */
+        lcd_line[lcd_addr_cnt] = data_ibuf;
+      }
+      if (lcd_inc) {
+        lcd_addr_cnt++;
+      } else {
+        lcd_addr_cnt--;
+      }
     } else {
       /* write instruction register */
+      if ((data_ibuf & 0xFF) == 0x01) {
+        /* clear display */
+        clear_display();
+      } else
+      if ((data_ibuf & 0xFE) == 0x02) {
+        /* return home */
+        return_home();
+      } else
+      if ((data_ibuf & 0xFC) == 0x04) {
+        /* entry mode set */
+        entry_mode_set((data_ibuf >> 1) & 1,
+                       (data_ibuf >> 0) & 1);
+      } else
+      if ((data_ibuf & 0xF8) == 0x08) {
+        /* display on/off control */
+        on_off_ctrl((data_ibuf >> 2) & 1,
+                    (data_ibuf >> 1) & 1,
+                    (data_ibuf >> 0) & 1);
+      } else
+      if ((data_ibuf & 0xF0) == 0x10) {
+        /* cursor or display shift */
+        crsr_or_dspl_shift((data_ibuf >> 3) & 1,
+                           (data_ibuf >> 2) & 1);
+      } else
+      if ((data_ibuf & 0xE0) == 0x20) {
+        /* function set */
+        function_set((data_ibuf >> 4) & 1,
+                     (data_ibuf >> 3) & 1,
+                     (data_ibuf >> 2) & 1);
+      } else
+      if ((data_ibuf & 0xC0) == 0x40) {
+        /* set CGRAM address */
+        set_CGRAM_address(data_ibuf & 0x3F);
+      } else
+      if ((data_ibuf & 0x80) == 0x80) {
+        /* set DDRAM address */
+        set_DDRAM_address(data_ibuf & 0x7F);
+      } else {
+        /* instruction is illegal, ignore */
+      }
     }
   }
+}
+
+
+static void resetLCD(void) {
+  clear_display();
+  function_set(true, false, false);
+  on_off_ctrl(false, false, false);
+  entry_mode_set(true, false);
 }
 
 
@@ -966,42 +1137,33 @@ void writeLCDctrl(Word data) {
   if (ctrlChange & LCD_ON) {
     /* ON changed */
     if (ctrl_ibuf & LCD_ON) {
-      /* ON raising edge */
-      if (debugLCDiface) {
-        printf("LCD: ON has raising edge\n");
-      }
+      /* ON raising edge: perform internal reset */
+      resetLCD();
       showLCD();
     } else {
-      /* ON falling edge */
-      if (debugLCDiface) {
-        printf("LCD: ON has falling edge\n");
-      }
+      /* ON falling edge: show empty LCD */
       showLCD();
     }
+  }
+  if ((ctrl_ibuf & LCD_ON) == 0) {
+    /* power is off: no further action */
+    return;
   }
   if (ctrlChange & LCD_EN) {
     /* EN changed */
     if (ctrl_ibuf & LCD_EN) {
-      /* EN raising edge */
-      if (debugLCDiface) {
-        printf("LCD: EN has raising edge\n");
-      }
-      /* ignore EN raising edge */
+      /* EN raising edge: ignore */
     } else {
-      /* EN falling edge */
-      if (debugLCDiface) {
-        printf("LCD: EN has falling edge\n");
-      }
-      /* call update for EN falling edge */
+      /* EN falling edge: call update */
       updateLCD();
+      showLCD();
     }
   }
 }
 
 
 void initLCD(void) {
-  memcpy(lcd_line +  0, "Welcome to RISC5", 16);
-  memcpy(lcd_line + 64, "   mni.thm.de   ", 16);
+  resetLCD();
   showLCD();
 }
 
