@@ -1,0 +1,5 @@
+
+Given that INST_PER_MSEC is 17000 (decimal), the simulator
+needs 0x4268 steps (i.e., instructions) to get to just one
+instruction before the timer interrupt hits.
+
