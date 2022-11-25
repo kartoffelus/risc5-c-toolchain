@@ -40,10 +40,10 @@
 #define GRAPH_SIZE	0x00018000		/* located within RAM */
 #define ROM_BASE	0x00FFE000		/* byte address */
 #define ROM_SIZE	0x00000800		/* counted in bytes */
-#define IO_BASE		0x00FFFFC0		/* byte address */
-#define IO_SIZE		0x00000040		/* counted in bytes */
 #define XIO_BASE	0x00FFFF80		/* byte address */
 #define XIO_SIZE	0x00000040		/* counted in bytes */
+#define IO_BASE		0x00FFFFC0		/* byte address */
+#define IO_SIZE		0x00000040		/* counted in bytes */
 #define ADDR_MASK	0x00FFFFFF		/* 24-bit addresses */
 
 #define EXC_VECTOR	0x000004		/* exceptions land here */
