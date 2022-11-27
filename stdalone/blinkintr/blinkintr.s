@@ -31,7 +31,7 @@ noblink:
 
 main:
 	GETS	R0,3		// get PSW
-	IOR	R0,R0,0x8000	// enable timer interrupt
+	IOR	R0,R0,0x4000	// enable timer interrupt
 	PUTS	R0,3		// put PSW
 	STI			// enable interrupts
 loop:
