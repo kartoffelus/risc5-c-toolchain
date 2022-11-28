@@ -10,6 +10,8 @@ MAP = boot.map
 BIN = boot.bin
 MEM = boot.mem
 
+PROM_SIZE = 2
+
 all:		$(MEM)
 
 install:	$(MEM)
@@ -18,7 +20,7 @@ install:	$(MEM)
 		cp $(MAP) $(BUILD)/prom
 
 $(MEM):		$(BIN)
-		$(BUILD)/bin/bin2mem $(BIN) $(MEM)
+		$(BUILD)/bin/bin2mem $(BIN) $(MEM) $(PROM_SIZE)
 
 $(BIN):		$(EXE)
 		$(BUILD)/bin/load -p $(EXE) $(BIN)
