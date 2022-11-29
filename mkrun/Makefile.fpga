@@ -1,0 +1,13 @@
+#
+# Makefile for running standalone programs and
+# the disk bootstrap on the RISC5 FPGA board
+#
+
+BUILD = ..
+
+all:
+
+install:
+
+clean:
+		rm -f *~

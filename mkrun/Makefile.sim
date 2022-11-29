@@ -1,0 +1,44 @@
+#
+# Makefile for running standalone programs and
+# the disk bootstrap on the RISC5 simulator
+#
+
+BUILD = ..
+
+PROM = $(BUILD)/prom/boot.mem
+
+DSK_IMG = disk.img
+DSK_SIZ = 100M
+DSK_MBR = $(BUILD)/disk/mbr.bin
+
+all:
+		@echo "In this directory, you can do one of two things:"
+		@echo "1. Run a standalone program on the simulator"
+		@echo "   You need two terminal windows in this directory."
+		@echo "   In the first one, start the simulator with"
+		@echo "       make boot-serial"
+		@echo "   In the second one, start sercomm with the path to"
+		@echo "   the proram you wish to run as argument, e.g."
+		@echo "       ../bin/sercomm ../stdalone/hello2.bin"
+		@echo "2. Bootstrap from disk on the simulator"
+		@echo "   You need two terminal windows in this directory."
+		@echo "   In the first one, start the simulator with"
+		@echo "       make boot-disk"
+		@echo "   The simulator will wait in interactive mode."
+		@echo "   In the other window, start sercomm like this:"
+		@echo "       ../bin/sercomm"
+		@echo "   Then let the simulator continue (command 'c')."
+
+boot-serial:
+		$(BUILD)/bin/sim -p $(PROM) -s 001
+
+boot-disk:	$(DSK_IMG)
+		$(BUILD)/bin/sim -i -p $(PROM) -d $(DSK_IMG) -s 000
+
+$(DSK_IMG):
+		$(BUILD)/bin/mkdisk $(DSK_IMG) $(DSK_SIZ)
+		dd if=$(DSK_MBR) of=$(DSK_IMG) bs=512 count=1 conv=notrunc
+
+clean:
+		rm -f *~ serial.dev
+		rm -f $(DSK_IMG)
