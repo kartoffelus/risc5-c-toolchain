@@ -13,8 +13,8 @@ BIN = mbr.bin
 all:		$(BIN)
 
 install:	$(BIN)
-		mkdir -p $(BUILD)/run
-		cp $(BIN) $(BUILD)/run
+		mkdir -p $(BUILD)/disk
+		cp $(BIN) $(BUILD)/disk
 
 $(BIN):		$(EXE)
 		$(BUILD)/bin/load -p $(EXE) $(BIN)

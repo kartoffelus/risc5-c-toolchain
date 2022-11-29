@@ -56,10 +56,10 @@ msg:
 	.BYTE	"cannot load any program."
 	.BYTE	0x0D, 0x0A
 	.BYTE	"Please replace with a real "
-	.BYTE	"MBR as soon as possible!"
+	.BYTE	"MBR and an OS, then try again!"
 	.BYTE	0x0D, 0x0A
 	.BYTE	0x0D, 0x0A, 0
 
-	.SPACE	0x128
+	.SPACE	0x122
 
 	.BYTE	0x55,0xAA
