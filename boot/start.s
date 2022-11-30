@@ -13,6 +13,59 @@
 
 	.GLOBAL	main
 
+	.GLOBAL	start
+	.GLOBAL	rdswt
+	.GLOBAL	wrled
+	.GLOBAL	rcvReady
+	.GLOBAL	rcvByte
+	.GLOBAL	sndReady
+	.GLOBAL	sndByte
+	.GLOBAL	sdRead
+	.GLOBAL	sdWrite
+
+//--------------------------------------------------------------
+
+	.GLOBAL	reset
+	.GLOBAL	switchRead
+	.GLOBAL	ledWrite
+	.GLOBAL	serialReadRdy
+	.GLOBAL	serialRead
+	.GLOBAL	serialWriteRdy
+	.GLOBAL	serialWrite
+	.GLOBAL	sdcardRead
+	.GLOBAL	sdcardWrite
+
+	.CODE
+
+reset:
+	B	start
+
+switchRead:
+	B	rdswt
+
+ledWrite:
+	B	wrled
+
+serialReadRdy:
+	B	rcvReady
+
+serialRead:
+	B	rcvByte
+
+serialWriteRdy:
+	B	sndReady
+
+serialWrite:
+	B	sndByte
+
+sdcardRead:
+	B	sdRead
+
+sdcardWrite:
+	B	sdWrite
+
+//--------------------------------------------------------------
+
 	.CODE
 
 start:

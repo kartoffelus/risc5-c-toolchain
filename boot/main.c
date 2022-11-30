@@ -3,6 +3,9 @@
  */
 
 
+typedef enum { false = 0, true = 1 } Bool;
+
+
 /**************************************************************/
 
 
@@ -27,9 +30,19 @@ unsigned int rdswt(void) {
 #define SER_CTRL	((unsigned int *) 0xFFFFCC)
 
 
+Bool rcvReady(void) {
+  return (*SER_CTRL & 1) != 0;
+}
+
+
 unsigned char rcvByte(void) {
   while ((*SER_CTRL & 1) == 0) ;
   return *SER_DATA;
+}
+
+
+Bool sndReady(void) {
+  return (*SER_CTRL & 2) != 0;
 }
 
 
@@ -46,7 +59,7 @@ void sndByte(unsigned char b) {
 #define NAK		((unsigned char) 0x11)
 
 
-unsigned int rcvInt(void) {
+static unsigned int rcvInt(void) {
   unsigned int val;
 
   val = 0;
@@ -58,7 +71,7 @@ unsigned int rcvInt(void) {
 }
 
 
-int loadFromLine(void) {
+static Bool loadFromLine(void) {
   unsigned int len;
   unsigned char *addr;
 
@@ -74,7 +87,7 @@ int loadFromLine(void) {
     } while (len != 0);
   }
   sndByte(ACK);
-  return 1;
+  return true;
 }
 
 
@@ -88,7 +101,7 @@ int loadFromLine(void) {
 /*
  * send n FFs slowly with no card selected
  */
-void spiIdle(int n) {
+static void spiIdle(int n) {
   *SPI_CTRL = 0;
   while (n > 0) {
     n--;
@@ -101,7 +114,7 @@ void spiIdle(int n) {
 /*
  * send & rcv byte slowly with card selected
  */
-void spi(int n) {
+static void spi(int n) {
   *SPI_CTRL = 1;
   *SPI_DATA = n;
   while ((*SPI_CTRL & 1) == 0) ;
@@ -111,7 +124,7 @@ void spi(int n) {
 /*
  * send command
  */
-void spiCmd(int n, int arg) {
+static void spiCmd(int n, int arg) {
   int data;
   int crc;
   int i;
@@ -149,7 +162,7 @@ void spiCmd(int n, int arg) {
 /*
  * initialize SPI
  */
-void spiInit(void) {
+static void spiInit(void) {
   int res;
 
   /* first, idle for at least 80 clks */
@@ -181,7 +194,7 @@ void spiInit(void) {
 /**************************************************************/
 
 
-void sdShift(int *p) {
+static void sdShift(int *p) {
   int data;
 
   /* CMD58: get card capacity bit */
@@ -219,13 +232,49 @@ void sdRead(int src, int dst) {
     * (unsigned int *) dst = data;
     dst += 4;
   }
+  /* may be a checksum */
   spi(255);
   spi(255);
+  /* deselect card */
   spiIdle(1);
 }
 
 
-int loadFromDisk(void) {
+void sdWrite(int dst, int src) {
+  int data;
+  int i;
+
+  sdShift(&dst);
+  /* CMD24: write one block */
+  spiCmd(24, dst);
+  /* write start data marker */
+  spi(254);
+  /* switch to fast */
+  *SPI_CTRL = 4 + 1;
+  for (i = 0; i <= 508; i += 4) {
+    data = * (unsigned int *) src;
+    src += 4;
+    *SPI_DATA = data;
+    while ((*SPI_CTRL & 1) == 0) ;
+  }
+  /* dummy checksum */
+  spi(255);
+  spi(255);
+  i = 0;
+  do {
+    spi(-1);
+    data = *SPI_DATA;
+    i++;
+  } while ((data & 31) != 5 && i != 10000);
+  /* deselect card */
+  spiIdle(1);
+}
+
+
+/**************************************************************/
+
+
+static Bool loadFromDisk(void) {
   unsigned char sb0, sb1;
 
   /* read boot sector */
@@ -233,12 +282,7 @@ int loadFromDisk(void) {
   /* check boot signature */
   sb0 = * (unsigned char *) 0x1FE;
   sb1 = * (unsigned char *) 0x1FF;
-  if (sb0 == 0x55 && sb1 == 0xAA) {
-    /* success */
-    return 1;
-  }
-  /* failure*/
-  return 0;
+  return sb0 == 0x55 && sb1 == 0xAA;
 }
 
 
@@ -246,7 +290,7 @@ int loadFromDisk(void) {
 
 
 void main(void) {
-  int loaded;
+  Bool loaded;
 
   wrled(0x80);
   spiInit();
