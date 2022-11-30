@@ -14,15 +14,20 @@ DSK_MBR = $(BUILD)/disk/mbr.bin
 BOOT =
 
 all:
+		@echo ""
 		@echo "In this directory, you can do one of two things:"
+		@echo ""
 		@echo "1. Run a standalone program on the simulator"
+		@echo "--------------------------------------------"
 		@echo "   You need two terminal windows in this directory."
 		@echo "   In the first one, start the simulator with"
 		@echo "       make boot-serial"
-		@echo "   In the second one, start sercomm with the path to"
-		@echo "   the proram you wish to run as argument, e.g."
+		@echo "   In the other window, start sercomm with the path"
+		@echo "   to the proram you wish to run as argument, e.g."
 		@echo "       make sercomm BOOT=../stdalone/hello2.bin"
-		@echo "2. Bootstrap from disk on the simulator"
+		@echo ""
+		@echo "2. Run the disk bootstrap on the simulator"
+		@echo "------------------------------------------"
 		@echo "   You need two terminal windows in this directory."
 		@echo "   In the first one, start the simulator with"
 		@echo "       make boot-disk"
@@ -30,6 +35,7 @@ all:
 		@echo "   In the other window, start sercomm like this:"
 		@echo "       make sercomm"
 		@echo "   Then let the simulator continue (command 'c')."
+		@echo ""
 
 boot-serial:
 		$(BUILD)/bin/sim -p $(PROM) -s 001

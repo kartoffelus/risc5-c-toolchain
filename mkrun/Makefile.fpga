@@ -5,9 +5,42 @@
 
 BUILD = ..
 
-all:
+BOOT =
 
-install:
+all:
+		@echo ""
+		@echo "In this directory, you can do one of two things:"
+		@echo ""
+		@echo "1. Run a standalone program on the FPGA board"
+		@echo "---------------------------------------------"
+		@echo "   Set the rightmost switch of your board to 1."
+		@echo "   Download fpga/v1/syn/build/risc5.svf to the board,"
+		@echo "   presumably with a JTAG-based SVF player. If RISC5"
+		@echo "   is already running, press the reset button instead."
+		@echo "   Then start sercomm with the path to the program"
+		@echo "   you wish to run as argument, e.g."
+		@echo "       make sercomm BOOT=../stdalone/hello2.bin"
+		@echo ""
+		@echo "2. Run the disk bootstrap on the FPGA board"
+		@echo "-------------------------------------------"
+		@echo "   Build a disk image, in the same way it's done in"
+		@echo "   build/run-sim with the command 'make disk.img'."
+		@echo "   Write the disk image onto an SD card, using the"
+		@echo "   'dd' command. On my machine the command is"
+		@echo "       sudo dd if=disk.img of=/dev/sdb"
+		@echo "   Please double-check the output file! It *must* be"
+		@echo "   the device file for the USB SD card reader/writer."
+		@echo "   Errors may destroy file systems on your disk!"
+		@echo "   Set rightmost switch of your board to 0."
+		@echo "   Put the SD card into the card slot of your board,"
+		@echo "   and power-up the board. Download risc5.svf to the"
+		@echo "   board, as described above. Start sercomm with"
+		@echo "       make sercomm"
+		@echo "   and press the reset button."
+		@echo ""
+
+sercomm:
+		$(BUILD)/bin/sercomm $(BOOT)
 
 clean:
 		rm -f *~
