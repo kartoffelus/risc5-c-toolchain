@@ -10,7 +10,7 @@ MAP = boot.map
 BIN = boot.bin
 MEM = boot.mem
 
-PROM_SIZE = 2
+PROM_SIZE = 4
 
 all:		$(MEM)
 
