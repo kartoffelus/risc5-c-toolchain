@@ -5,7 +5,7 @@
 BUILD = ../build
 
 DIRS = blinkintr blinkintr2 blinkpoll echo hello hello2 \
-       lcdtest memtest sregtest
+       lcdtest memtest promtest sregtest
 
 .PHONY:		all install clean
 
