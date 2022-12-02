@@ -28,7 +28,7 @@
 #define CPU_ID		(CPU_VERSION)
 
 #define CC_PER_USEC	50.0			/* clock frequency in MHz */
-#define CC_PER_INST	2.0			/* clock cycles per inst */
+#define CC_PER_INST	4.0			/* clock cycles per inst */
 #define INST_PER_MSEC	((int)((1000.0 * CC_PER_USEC) / CC_PER_INST + 0.5))
 #define BAUD_RATE	38400			/* serial line speed */
 #define MSEC_PER_CHAR	(10 * (1000.0 / BAUD_RATE))
