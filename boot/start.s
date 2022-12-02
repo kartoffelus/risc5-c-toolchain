@@ -14,6 +14,7 @@
 	.GLOBAL	main
 
 	.GLOBAL	start
+	.GLOBAL	msdelay
 	.GLOBAL	rdswt
 	.GLOBAL	wrled
 	.GLOBAL	rcvReady
@@ -26,6 +27,7 @@
 //--------------------------------------------------------------
 
 	.GLOBAL	reset
+	.GLOBAL	delay
 	.GLOBAL	switchRead
 	.GLOBAL	ledWrite
 	.GLOBAL	serialReadRdy
@@ -39,6 +41,9 @@
 
 reset:
 	B	start
+
+delay:
+	B	msdelay
 
 switchRead:
 	B	rdswt

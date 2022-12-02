@@ -5,6 +5,25 @@
 
 typedef enum { false = 0, true = 1 } Bool;
 
+typedef unsigned int Word;
+typedef unsigned short Half;
+typedef unsigned char Byte;
+
+
+/**************************************************************/
+
+
+#define MST_ADDR	((unsigned int *) 0xFFFFC0)
+
+
+void msdelay(Word ms) {
+  Word t;
+
+  t = *MST_ADDR;
+  t += ms;
+  while (*MST_ADDR < t) ;
+}
+
 
 /**************************************************************/
 
