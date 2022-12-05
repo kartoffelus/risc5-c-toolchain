@@ -37,8 +37,8 @@ all:
 		@echo "   Then let the simulator continue (command 'c')."
 		@echo ""
 
-boot-serial:
-		$(BUILD)/bin/sim -p $(PROM) -s 001
+boot-serial:	$(DSK_IMG)
+		$(BUILD)/bin/sim -p $(PROM) -d $(DSK_IMG) -s 001
 
 boot-disk:	$(DSK_IMG)
 		$(BUILD)/bin/sim -i -p $(PROM) -d $(DSK_IMG) -s 000
