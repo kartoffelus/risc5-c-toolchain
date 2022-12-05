@@ -874,6 +874,7 @@ void writeIO(int dev, Word data) {
 
 
 #define HPT_EXPIRED		0x01
+#define HPT_IEN			0x01
 
 #define HPT_SCALING		100
 
@@ -881,13 +882,16 @@ void writeIO(int dev, Word data) {
 static Word HPTcounter;
 static Word HPTdivisor;
 static Word HPTstatus;
+static Word HPTcontrol;
 
 
 static void tickHPTcounter(int clockCycles) {
   if (HPTcounter <= clockCycles) {
     HPTcounter += HPTdivisor - clockCycles;
     HPTstatus |= HPT_EXPIRED;
-    cpuSetInterrupt(IRQ_HPT);
+    if (HPTcontrol & HPT_IEN) {
+      cpuSetInterrupt(IRQ_HPT);
+    }
   } else {
     HPTcounter -= clockCycles;
   }
@@ -946,7 +950,9 @@ Word readHPTctrl(void) {
 
   data = HPTstatus;
   HPTstatus &= ~HPT_EXPIRED;
-  cpuResetInterrupt(IRQ_HPT);
+  if (HPTcontrol & HPT_IEN) {
+    cpuResetInterrupt(IRQ_HPT);
+  }
   return data;
 }
 
@@ -954,9 +960,20 @@ Word readHPTctrl(void) {
 /*
  * write extended device 1:
  *     HPT ctrl
- *     ignore
+ *     { 31'bx, ien }
  */
 void writeHPTctrl(Word data) {
+  if (data & HPT_IEN) {
+    HPTcontrol |= HPT_IEN;
+  } else {
+    HPTcontrol &= ~HPT_IEN;
+  }
+  if ((HPTcontrol & HPT_IEN) &&
+      (HPTstatus & HPT_EXPIRED)) {
+    cpuSetInterrupt(IRQ_HPT);
+  } else {
+    cpuResetInterrupt(IRQ_HPT);
+  }
 }
 
 
@@ -964,6 +981,7 @@ void initHPT(void) {
   HPTdivisor = 0xFFFFFFFF;
   HPTcounter = 0xFFFFFFFF;
   HPTstatus = 0;
+  HPTcontrol = 0;
 }
 
 
