@@ -76,16 +76,24 @@ void cpuResetInterrupt(int priority);
  */
 
 
+#define TIMER_IEN		0x01
+
+
 static Word milliSeconds;
+static Word timerControl;
+static Bool timerExpired;
 
 
 void tickTimer(void) {
   static int count = 0;
 
-  if (count++ == INST_PER_MSEC) {
+  if (++count == INST_PER_MSEC) {
     count = 0;
     milliSeconds++;
-    cpuSetInterrupt(IRQ_TIMER);
+    timerExpired = true;
+    if (timerControl & TIMER_IEN) {
+      cpuSetInterrupt(IRQ_TIMER);
+    }
   }
 }
 
@@ -96,21 +104,37 @@ void tickTimer(void) {
  *     return milliseconds counter value
  */
 Word readTimer(void) {
-  cpuResetInterrupt(IRQ_TIMER);
+  timerExpired = false;
+  if (timerControl & TIMER_IEN) {
+    cpuResetInterrupt(IRQ_TIMER);
+  }
   return milliSeconds;
 }
 
 
 /*
  * write device 0:
- *     ignore
+ *     control
+ *     { 31'bx, ien }
  */
 void writeTimer(Word data) {
+  if (data & TIMER_IEN) {
+    timerControl |= TIMER_IEN;
+  } else {
+    timerControl &= ~TIMER_IEN;
+  }
+  if ((timerControl & TIMER_IEN) && timerExpired) {
+    cpuSetInterrupt(IRQ_TIMER);
+  } else {
+    cpuResetInterrupt(IRQ_TIMER);
+  }
 }
 
 
 void initTimer(void) {
   milliSeconds = 0;
+  timerControl = 0;
+  timerExpired = false;
 }
 
 
