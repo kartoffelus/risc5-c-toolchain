@@ -30,6 +30,9 @@ noblink:
 	RTI			// return from interrupt
 
 main:
+	MOV	R0,-64		// address of timer ctrl register
+	MOV	R1,1		// enable device interrupt
+	STW	R1,R0,0
 	GETS	R0,3		// get PSW
 	IOR	R0,R0,1<<11	// enable timer interrupt
 	PUTS	R0,3		// put PSW
