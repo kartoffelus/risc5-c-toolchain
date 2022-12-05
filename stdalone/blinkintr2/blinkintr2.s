@@ -24,6 +24,8 @@ main:
 	MOV	R0,-128		// set divisor
 	MOV	R1,25000000	// to clock cycles per 500 msec
 	STW	R1,R0,0
+	MOV	R1,1		// enable device interrupt
+	STW	R1,R0,4
 	GETS	R0,3		// get PSW
 	IOR	R0,R0,1<<15	// enable high precision timer interrupt
 	PUTS	R0,3		// put PSW

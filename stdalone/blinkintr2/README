@@ -1,5 +1,3 @@
-
-Given that INST_PER_MSEC is 25000 (decimal), the simulator
-needs 0xBEBC24 steps (i.e., instructions) to get to just one
+Given that INST_PER_MSEC is 12500 (decimal), the simulator
+needs 0x5F5E14 steps (i.e., instructions) to get to just one
 instruction before the high precision timer interrupt hits.
-
