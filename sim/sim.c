@@ -1309,6 +1309,110 @@ void initLCD(void) {
 /**************************************************************/
 
 /*
+ * Extended I/O device 4: BTNSWT
+ */
+
+
+#define PRESS_SHIFT		28
+#define RELEASE_SHIFT		24
+#define BUTTON_SHIFT		8
+
+#define NUM_BUTTONS		4
+#define BUTTON_MASK		((1 << NUM_BUTTONS) - 1)
+
+#define NUM_SWITCHES		8
+#define SWITCH_MASK		((1 << NUM_SWITCHES) - 1)
+
+#define ALL_STATES		((BUTTON_MASK << BUTTON_SHIFT) | SWITCH_MASK)
+#define PRESS_MASK		(BUTTON_MASK << PRESS_SHIFT)
+#define RELEASE_MASK		(BUTTON_MASK << RELEASE_SHIFT)
+#define ALL_EDGES		(PRESS_MASK | RELEASE_MASK)
+
+
+static Bool debugBTNSWT = false;
+
+static Word BTNSWTstatus;
+static Word BTNSWTcontrol;
+
+
+void setBTNSWT(Word data) {
+  Word before, after;
+  Word raising, falling;
+
+  if (debugBTNSWT) {
+    printf("DEBUG: enter setBTNSWT(data)\n");
+    printf("       BTNSWTstatus  = 0x%08X\n", BTNSWTstatus);
+    printf("       data          = 0x%08X\n", data);
+  }
+  before = (BTNSWTstatus >> BUTTON_SHIFT) & BUTTON_MASK;
+  after = (data >> BUTTON_SHIFT) & BUTTON_MASK;
+  raising = (~before & after) << PRESS_SHIFT;
+  falling = (before & ~after) << RELEASE_SHIFT;
+  if (debugBTNSWT) {
+    printf("DEBUG: raising       = 0x%08X\n", raising);
+    printf("       falling       = 0x%08X\n", falling);
+  }
+  BTNSWTstatus = (BTNSWTstatus & ~ALL_STATES) | (data & ALL_STATES);
+  BTNSWTstatus |= raising | falling;
+  if (debugBTNSWT) {
+    printf("DEBUG: leave setBTNSWT()\n");
+    printf("       BTNSWTstatus  = 0x%08X\n", BTNSWTstatus);
+    printf("       BTNSWTcontrol = 0x%08X\n", BTNSWTcontrol);
+  }
+  if (BTNSWTstatus & BTNSWTcontrol) {
+    cpuSetInterrupt(IRQ_BUTTONS);
+  } else {
+    cpuResetInterrupt(IRQ_BUTTONS);
+  }
+}
+
+
+/*
+ * read extended device 4:
+ *     return button and switch status
+ *     { press[3:0], release[3:0], 12'bx, button[3:0], switch[7:0] }
+ *     reset all press/release bits
+ */
+Word readBTNSWT(void) {
+  Word data;
+
+  data = BTNSWTstatus;
+  BTNSWTstatus &= ~ALL_EDGES;
+  cpuResetInterrupt(IRQ_BUTTONS);
+  return data;
+}
+
+
+/*
+ * write extended device 4:
+ *     set interrupt control bits
+ *     { press[3:0], release[3:0], 24'bx }
+ */
+void writeBTNSWT(Word data) {
+  BTNSWTcontrol = data & ALL_EDGES;
+  if (BTNSWTstatus & BTNSWTcontrol) {
+    cpuSetInterrupt(IRQ_BUTTONS);
+  } else {
+    cpuResetInterrupt(IRQ_BUTTONS);
+  }
+}
+
+
+void initBTNSWT(Word initialBtnSwt) {
+  if (debugBTNSWT) {
+    printf("DEBUG: BUTTON_MASK = 0x%08X\n", BUTTON_MASK);
+    printf("       SWITCH_MASK = 0x%08X\n", SWITCH_MASK);
+    printf("       ALL_STATES  = 0x%08X\n", ALL_STATES);
+    printf("       ALL_EDGES   = 0x%08X\n", ALL_EDGES);
+  }
+  BTNSWTstatus = initialBtnSwt & ALL_STATES;
+  BTNSWTcontrol = 0;
+}
+
+
+/**************************************************************/
+
+/*
  * Extended I/O : address of device n = XIO_BASE + 4 * n
  *                this can be expressed in decimal as -4 * (32 - n)
  */
@@ -1329,6 +1433,9 @@ Word readXIO(int dev) {
       break;
     case 3:
       data = readLCDctrl();
+      break;
+    case 4:
+      data = readBTNSWT();
       break;
     default:
       error("reading from unknown extended I/O device %d", dev);
@@ -1352,6 +1459,9 @@ void writeXIO(int dev, Word data) {
       break;
     case 3:
       writeLCDctrl(data);
+      break;
+    case 4:
+      writeBTNSWT(data);
       break;
     default:
       error("writing to unknown extended I/O device %d, data = 0x%08X",
@@ -3106,6 +3216,8 @@ static void doSwitches(char *tokens[], int n) {
       return;
     }
     setSwitches(cs);
+    /* feed the second interface also */
+    setBTNSWT(cs);
   } else {
     helpSwitches();
   }
@@ -3296,6 +3408,7 @@ int main(int argc, char *argv[]) {
   }
   initTimer();
   initSWLED(initialSwitches);
+  initBTNSWT(initialSwitches);
   initRS232();
   initSPI(diskName);
   initMouseKeybd();
