@@ -1,6 +1,6 @@
 
-High Performance Timer (HPTMR)
-==============================
+High Precision Timer (HPTMR)
+============================
 
 IRQ:  15
 base: 0xFFFF80
