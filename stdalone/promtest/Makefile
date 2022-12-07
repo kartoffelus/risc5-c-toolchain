@@ -44,7 +44,7 @@ $(EXE):		$(SRC)
 		  -Wo-ldmap=$(MAP) -o $(EXE) $(SRC)
 
 $(DSK):
-		$(BUILD)/bin/mkdisk $(DSK) 256
+		$(BUILD)/bin/mkdisk $(DSK) 2048
 
 clean:
 		rm -f *~ $(EXE) $(MAP) $(BIN) $(MEM) $(DSK)

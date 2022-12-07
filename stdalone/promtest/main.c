@@ -9,6 +9,9 @@
 #include "promlib.h"
 
 
+#define CHECK_SECTOR	1234
+
+
 void delayTest(void) {
   printf("please check the delay, it should last 30 seconds\n");
   delay(30000);
@@ -46,36 +49,55 @@ void switchTest(void) {
 
 void sdcardTest(void) {
   Word buffer[512/4];
+  Word save[512/4];
   Byte *p;
   int i;
 
   /* read sector 0 */
   printf("read sector 0\n");
   sdcardRead(0, buffer);
-  printf("0x%08X  0x%08X  0x%08X  0x%08X\n",
-         buffer[0], buffer[1], buffer[2], buffer[3]);
-  /* read sector 123 */
-  printf("read sector 123\n");
-  sdcardRead(123, buffer);
-  printf("0x%08X  0x%08X  0x%08X  0x%08X\n",
-         buffer[0], buffer[1], buffer[2], buffer[3]);
-  /* write sector 123 */
-  printf("write sector 123\n");
+  printf("0x%08X  0x%08X  0x%08X  0x%08X ... 0x%08X  0x%08X\n",
+         buffer[0], buffer[1], buffer[2], buffer[3],
+         buffer[126], buffer[127]);
+  /* read sector CHECK_SECTOR */
+  printf("read sector %d\n", CHECK_SECTOR);
+  sdcardRead(CHECK_SECTOR, buffer);
+  printf("0x%08X  0x%08X  0x%08X  0x%08X ... 0x%08X  0x%08X\n",
+         buffer[0], buffer[1], buffer[2], buffer[3],
+         buffer[126], buffer[127]);
+  /* save sector CHECK_SECTOR */
+  printf("save sector %d\n", CHECK_SECTOR);
+  for (i = 0; i < 512; i++) {
+    save[i] = buffer[i];
+  }
+  /* write sector CHECK_SECTOR */
+  printf("write sector %d\n", CHECK_SECTOR);
   p = (Byte *) buffer;
   for (i = 0; i < 512; i++) {
     *p++ = i;
   }
-  sdcardWrite(123, buffer);
+  sdcardWrite(CHECK_SECTOR, buffer);
   /* read sector 0 */
   printf("read sector 0\n");
   sdcardRead(0, buffer);
-  printf("0x%08X  0x%08X  0x%08X  0x%08X\n",
-         buffer[0], buffer[1], buffer[2], buffer[3]);
-  /* read sector 123 */
-  printf("read sector 123\n");
-  sdcardRead(123, buffer);
-  printf("0x%08X  0x%08X  0x%08X  0x%08X\n",
-         buffer[0], buffer[1], buffer[2], buffer[3]);
+  printf("0x%08X  0x%08X  0x%08X  0x%08X ... 0x%08X  0x%08X\n",
+         buffer[0], buffer[1], buffer[2], buffer[3],
+         buffer[126], buffer[127]);
+  /* read sector CHECK_SECTOR */
+  printf("read sector %d\n", CHECK_SECTOR);
+  sdcardRead(CHECK_SECTOR, buffer);
+  printf("0x%08X  0x%08X  0x%08X  0x%08X ... 0x%08X  0x%08X\n",
+         buffer[0], buffer[1], buffer[2], buffer[3],
+         buffer[126], buffer[127]);
+  /* restore sector CHECK_SECTOR */
+  printf("restore sector %d\n", CHECK_SECTOR);
+  sdcardWrite(CHECK_SECTOR, save);
+  /* read sector CHECK_SECTOR */
+  printf("read sector %d\n", CHECK_SECTOR);
+  sdcardRead(CHECK_SECTOR, buffer);
+  printf("0x%08X  0x%08X  0x%08X  0x%08X ... 0x%08X  0x%08X\n",
+         buffer[0], buffer[1], buffer[2], buffer[3],
+         buffer[126], buffer[127]);
   printf("\n");
 }
 
