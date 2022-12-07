@@ -169,6 +169,11 @@ module risc5(clk_in,
   wire kbd_ack;				// keyboard acknowledge
   // extended i/o
   wire x_i_o_stb;			// extended i/o strobe
+  // hpt
+  wire hpt_stb;				// high prec timer strobe
+  wire [31:0] hpt_dout;			// high prec timer data output
+  wire hpt_ack;				// high prec timer acknowledge
+  wire hpt_irq;				// high prec timer interrupt request
   // lcd
   wire lcd_stb;				// LCD strobe
   wire [31:0] lcd_dout;			// LCD data output
@@ -331,6 +336,18 @@ module risc5(clk_in,
     .mouse_data(ps2_1_data)
   );
 
+  hpt hpt_0(
+    .clk(clk),
+    .rst(rst),
+    .stb(hpt_stb),
+    .we(bus_we),
+    .addr(bus_addr[2]),
+    .data_in(bus_dout[31:0]),
+    .data_out(hpt_dout[31:0]),
+    .ack(hpt_ack),
+    .irq(hpt_irq)
+  );
+
   lcd lcd_0(
     .clk(clk),
     .rst(rst),
@@ -383,6 +400,8 @@ module risc5(clk_in,
   assign x_i_o_stb =
     (bus_stb == 1'b1 && bus_addr[23:8] == 16'hFFFF
                      && bus_addr[7:6] == 2'b10) ? 1'b1 : 1'b0;
+  assign hpt_stb =
+    (x_i_o_stb == 1'b1 && bus_addr[5:3] == 3'b000) ? 1'b1 : 1'b0;
   assign lcd_stb =
     (x_i_o_stb == 1'b1 && bus_addr[5:3] == 3'b001) ? 1'b1 : 1'b0;
 
@@ -398,6 +417,7 @@ module risc5(clk_in,
     ser_stb  ? ser_dout[31:0]  :
     sdc_stb  ? sdc_dout[31:0]  :
     kbd_stb  ? kbd_dout[31:0]  :
+    hpt_stb  ? hpt_dout[31:0]  :
     lcd_stb  ? lcd_dout[31:0]  :
     32'h00000000;
 
@@ -409,6 +429,7 @@ module risc5(clk_in,
     ser_stb  ? ser_ack  :
     sdc_stb  ? sdc_ack  :
     kbd_stb  ? kbd_ack  :
+    hpt_stb  ? hpt_ack  :
     lcd_stb  ? lcd_ack  :
     1'b0;
 
@@ -416,7 +437,7 @@ module risc5(clk_in,
   // bus interrupt request assignments
   //--------------------------------------
 
-  assign bus_irq[15] = 1'b0;
+  assign bus_irq[15] = hpt_irq;
   assign bus_irq[14] = 1'b0;
   assign bus_irq[13] = 1'b0;
   assign bus_irq[12] = 1'b0;
