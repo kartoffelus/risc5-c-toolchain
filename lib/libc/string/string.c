@@ -41,7 +41,6 @@ void* memset( void *dest, int ch, size_t count ){
     }
     
     /* set leftover bytes */
-    /* x & 7 == x % 8 */
     while(count--){
         *(destB++) = (unsigned char)ch;
     }
