@@ -4,7 +4,7 @@
 
 BUILD = ../../build
 
-DIRS = dummy
+DIRS = dummy string
 OBJS = $(wildcard $(patsubst %,%/*.o,$(DIRS)))
 LIB = libc.a
 
