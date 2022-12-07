@@ -157,6 +157,8 @@ module risc5(clk_in,
   wire ser_stb;				// serial line strobe
   wire [31:0] ser_dout;			// serial line data output
   wire ser_ack;				// serial line acknowledge
+  wire ser_rcv_irq;			// serial line rcv interrupt request
+  wire ser_xmt_irq;			// serial line xmt interrupt request
   // sdc
   wire sdc_stb;				// SDC strobe
   wire [31:0] sdc_dout;			// SDC data output
@@ -294,6 +296,8 @@ module risc5(clk_in,
     .data_in(bus_dout[31:0]),
     .data_out(ser_dout[31:0]),
     .ack(ser_ack),
+    .rcv_irq(ser_rcv_irq),
+    .xmt_irq(ser_xmt_irq),
     .rxd(rs232_0_rxd),
     .txd(rs232_0_txd)
   );
@@ -420,8 +424,8 @@ module risc5(clk_in,
   assign bus_irq[10] = 1'b0;
   assign bus_irq[ 9] = 1'b0;
   assign bus_irq[ 8] = 1'b0;
-  assign bus_irq[ 7] = 1'b0;
-  assign bus_irq[ 6] = 1'b0;
+  assign bus_irq[ 7] = ser_rcv_irq;
+  assign bus_irq[ 6] = ser_xmt_irq;
   assign bus_irq[ 5] = 1'b0;
   assign bus_irq[ 4] = 1'b0;
   assign bus_irq[ 3] = 1'b0;
