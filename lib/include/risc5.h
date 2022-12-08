@@ -44,10 +44,14 @@ extern uint32_t risc5_ivt[16];  /* defined in crt0.s */
 #define RISC5_IO_LCD_DATA               ((volatile uint32_t*)((RISC5_XIO_BASE) + (4*2)))
 #define RISC5_IO_LCD_STAT_CTRL          ((volatile uint32_t*)((RISC5_XIO_BASE) + (4*3)))
 
-/*** Cpu Intrinsics defined in asm.def ***/
+/*** Cpu Intrinsics ***/
 
 extern void _asm_CLI(void);
 extern void _asm_STI(void);
 extern void _asm_NOP(void);
+
+#define RISC5_DISABLE_INTERRUPTS() _asm_CLI()
+#define RISC5_ENABLE_INTERRUPTS() _asm_STI()
+#define RISC5_NOP() _asm_NOP()
 
 #endif /* __RISC5_H */
