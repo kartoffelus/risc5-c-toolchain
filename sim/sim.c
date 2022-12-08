@@ -778,6 +778,33 @@ void initGPIO(void) {
 /**************************************************************/
 
 /*
+ * I/O device 15: Shutdown
+ */
+
+
+/*
+ * read device 15:
+ *     always return 0
+ */
+Word readShutdown(void) {
+  return 0;
+}
+
+
+/*
+ * write device 15:
+ *     exit simulator with lowest 8 bits of value as status
+ */
+void writeShutdown(Word data) {
+  graphExit();
+  printf("RISC5 simulator shutdown\n");
+  exit(data & 0xFF);
+}
+
+
+/**************************************************************/
+
+/*
  * I/O : address of device n = IO_BASE + 4 * n
  *       this can be expressed in decimal as -4 * (16 - n)
  */
@@ -816,6 +843,9 @@ Word readIO(int dev) {
       break;
     case 9:
       data = readGPIO_1();
+      break;
+    case 15:
+      data = readShutdown();
       break;
     default:
       error("reading from unknown I/O device %d", dev);
@@ -857,6 +887,9 @@ void writeIO(int dev, Word data) {
       break;
     case 9:
       writeGPIO_1(data);
+      break;
+    case 15:
+      writeShutdown(data);
       break;
     default:
       error("writing to unknown I/O device %d, data = 0x%08X",
