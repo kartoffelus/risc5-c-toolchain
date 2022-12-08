@@ -12,7 +12,7 @@
 /* interrupt vector table */
 extern uint32_t risc5_ivt[16];  /* defined in crt0.s */
 
-/* irq numbers**/
+/* IRQ numbers */
 #define RISC5_IRQ_HP_TIMER      (15U)
 #define RISC5_IRQ_MS_TIMER      (11U)
 #define RISC5_IRQ_RS232_0_RX    (7U)
@@ -28,11 +28,11 @@ extern uint32_t risc5_ivt[16];  /* defined in crt0.s */
 /* Standard device addresses */
 #define RISC5_IO_MS_TIMER	            ((volatile uint32_t*)((RISC5_IO_BASE) + (4*0)))
 #define RISC5_IO_SWITCH                 ((volatile uint32_t*)((RISC5_IO_BASE) + (4*1)))
-#define RISC5_IO_LED                    IO_SWITCH /* SWITCH: read only, LED: write only */
+#define RISC5_IO_LED                    RISC5_IO_SWITCH /* SWITCH: read only, LED: write only */
 #define RISC5_IO_SERIAL_DATA            ((volatile uint32_t*)((RISC5_IO_BASE) + (4*2)))
 #define RISC5_IO_SERIAL_STAT_CTRL       ((volatile uint32_t*)((RISC5_IO_BASE) + (4*3)))
 #define RISC5_IO_SPI_DATA               ((volatile uint32_t*)((RISC5_IO_BASE) + (4*4)))
-#define RISC5_IO_SPI_STAT_CTRL_CTRL     ((volatile uint32_t*)((RISC5_IO_BASE) + (4*5)))
+#define RISC5_IO_SPI_STAT_CTRL          ((volatile uint32_t*)((RISC5_IO_BASE) + (4*5)))
 #define RISC5_IO_MOUSE_DATA_KBD_STAT    ((volatile uint32_t*)((RISC5_IO_BASE) + (4*6)))
 #define RISC5_IO_KBD_DATA               ((volatile uint32_t*)((RISC5_IO_BASE) + (4*7)))
 #define RISC5_IO_GPIO_DATA              ((volatile uint32_t*)((RISC5_IO_BASE) + (4*8)))
