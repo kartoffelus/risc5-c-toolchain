@@ -2199,6 +2199,9 @@ static char *awkText =
 "#\n"
 "\n"
 "BEGIN {\n"
+"def[\"CLI\"] = \"\\tCLI\\n\"\n"
+"def[\"STI\"] = \"\\tSTI\\n\"\n"
+"def[\"NOP\"] = \"\\tBNVR\\tR0\\n\"\n"
 "@\n"
 "}\n"
 "\n"
@@ -2233,11 +2236,13 @@ char *doInlineAsmSubst(char *inName, char *iadName) {
   if (debugIAS) {
     printf("DEBUG: inline assembler substitution files\n");
     printf("DEBUG: inName = '%s', tmpName = '%s'\n", inName, tmpName);
-    printf("DEBUG: iadName = '%s', awkName = '%s'\n", iadName, awkName);
+    printf("DEBUG: iadName = '%s', awkName = '%s'\n", (iadName != NULL) ? iadName : "(None)", awkName);
   }
-  iadFile = fopen(iadName, "r");
-  if (iadFile == NULL) {
-    error("cannot open inline definition file '%s' for read", iadName);
+  if (iadName != NULL) {  
+    iadFile = fopen(iadName, "r");
+    if (iadFile == NULL) {
+      error("cannot open inline definition file '%s' for read", iadName);
+    }
   }
   awkFile = fopen(awkName, "w");
   if (awkFile == NULL) {
@@ -2248,14 +2253,18 @@ char *doInlineAsmSubst(char *inName, char *iadName) {
   while ((c = *p++) != '\0') {
     if (c == '@') {
       /* at character '@' include definition file */
-      while ((c = fgetc(iadFile)) != EOF) {
-        fputc(c, awkFile);
+      if (iadName != NULL) {
+        while ((c = fgetc(iadFile)) != EOF) {
+          fputc(c, awkFile);
+        }
       }
     } else {
       fputc(c, awkFile);
     }
   }
-  fclose(iadFile);
+  if (iadName != NULL) {
+    fclose(iadFile);
+  }
   fclose(awkFile);
   /* build up AWK command line */
   sprintf(awkCommand, "awk -f %s %s >%s", awkName, inName, tmpName);
@@ -2325,9 +2334,7 @@ int main(int argc, char *argv[]) {
   if (inName == NULL) {
     error("no input file");
   }
-  if (iadName != NULL) {
-    inName = doInlineAsmSubst(inName, iadName);
-  }
+  inName = doInlineAsmSubst(inName, iadName);
   inFile = fopen(inName, "r");
   if (inFile == NULL) {
     error("cannot open input file '%s'", inName);
@@ -2340,7 +2347,7 @@ int main(int argc, char *argv[]) {
   writeAll();
   fclose(inFile);
   fclose(outFile);
-  if (iadName != NULL && !debugIAS) {
+  if (!debugIAS) {
     /* remove temporary file */
     remove(inName);
   }
