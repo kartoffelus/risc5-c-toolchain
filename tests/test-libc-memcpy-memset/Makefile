@@ -23,6 +23,9 @@ boot-connect:	$(BIN)
 run:		$(MEM)
 		$(BUILD)/bin/sim -i -r $(MEM) -s 001
 
+test:	$(MEM)
+		$(BUILD)/bin/sim -r $(MEM) -s 001
+
 run-connect:
 		$(BUILD)/bin/sercomm
 

@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <stddef.h>
+#include <risc5.h>
 
 void vAssertCalled( const char *fileName, int line );
 #define Assert(expr) if (expr) {} else vAssertCalled(__FILE__, __LINE__)
@@ -69,6 +70,8 @@ int main(void) {
         }
         ++i;
     }
+
+    *RISC5_IO_SIM_SHUTDOWN = 0x0;
 }
 
 static void clear(char* buf, size_t len)
@@ -100,12 +103,8 @@ static void checkMemset(char* buf, char ch, size_t len)
 
 void vAssertCalled( const char *fileName, int line )
 {
-    volatile unsigned int resume = 0;
-
+    RISC5_DISABLE_INTERRUPTS();
 	( void ) fileName;
 	( void ) line;
-
-    while( !resume )
-    {
-    }
+    *RISC5_IO_SIM_SHUTDOWN = 0x1;
 }

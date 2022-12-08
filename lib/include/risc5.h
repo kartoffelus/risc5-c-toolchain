@@ -37,6 +37,7 @@ extern uint32_t risc5_ivt[16];  /* defined in crt0.s */
 #define RISC5_IO_KBD_DATA               ((volatile uint32_t*)((RISC5_IO_BASE) + (4*7)))
 #define RISC5_IO_GPIO_DATA              ((volatile uint32_t*)((RISC5_IO_BASE) + (4*8)))
 #define RISC5_IO_GPIO_DIR               ((volatile uint32_t*)((RISC5_IO_BASE) + (4*9)))
+#define RISC5_IO_SIM_SHUTDOWN           ((volatile uint32_t*)0xFFFFFC)
 
 /* Extended device addresses */
 #define RISC5_IO_HP_TIMER_DATA          ((volatile uint32_t*)((RISC5_XIO_BASE) + (4*0)))
