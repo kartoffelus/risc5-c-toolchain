@@ -4,7 +4,7 @@
 
 BUILD = ../build
 
-DIRS = mkdisk mkmbr
+DIRS = mkdisk mkmbr tools
 
 all:
 		for i in $(DIRS) ; do \
