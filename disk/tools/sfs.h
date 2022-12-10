@@ -9,8 +9,8 @@
 
 #define SECTOR_SIZE	512		/* in bytes */
 
-#define LOADER		254		/* in sectors */
-#define RESERVED	(2 + LOADER)	/* in sectors */
+#define LDR_SIZE	254		/* loader size, in sectors */
+#define RESERVED	(2 + LDR_SIZE)	/* total reserved, in sectors */
 
 #define SFS_MAGIC_1	0x2DD43AE8	/* SFS identification */
 #define SFS_MAGIC_2	0x92321AA0	/* SFS identification */
