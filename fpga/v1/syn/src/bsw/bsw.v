@@ -36,7 +36,8 @@ module bsw(clk, rst,
   reg [3:0] pressed;
   reg [3:0] released;
 
-  reg ien;
+  reg [3:0] ien_pressed;
+  reg [3:0] ien_released;
   wire any_pressed;
   wire any_released;
 
@@ -66,10 +67,12 @@ module bsw(clk, rst,
 
   always @(posedge clk) begin
     if (rst) begin
-      ien <= 1'b0;
+      ien_pressed[3:0] <= 4'h0;
+      ien_released[3:0] <= 4'h0;
     end else begin
       if (stb & we) begin
-        ien <= data_in[0];
+        ien_pressed[3:0] <= data_in[31:28];
+        ien_released[3:0] <= data_in[27:24];
       end
     end
   end
@@ -79,8 +82,8 @@ module bsw(clk, rst,
 
   assign ack = stb;
 
-  assign any_pressed = | pressed[3:0];
-  assign any_released = | released[3:0];
-  assign irq = (any_pressed | any_released) & ien;
+  assign any_pressed = | (pressed[3:0] & ien_pressed[3:0]);
+  assign any_released = | (released[3:0] & ien_released[3:0]);
+  assign irq = any_pressed | any_released;
 
 endmodule
