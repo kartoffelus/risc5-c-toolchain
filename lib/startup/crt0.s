@@ -18,11 +18,32 @@
 	// export symbols
 	.GLOBAL	stack
 	.GLOBAL risc5_ivt
+    .GLOBAL risc5_start_irq_dispatch
+    .GLOBAL risc5_default_irq_dispatcher
 
 	.CODE
 
     B start
-irq_dispatch:
+risc5_start_irq_dispatch:
+    B risc5_default_irq_dispatcher
+risc5_ivt:
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+	.WORD 	default_isr
+risc5_default_irq_dispatcher:
 	GETS 	R13,	3		// first of all save the PSW, because of the flags
 	SUB	R14, R14, interrupt_frame_size		// calculate the new stack pointer for saving context
 	STW R0, R14, 0*4		// save R0
@@ -81,25 +102,9 @@ irq_dispatch:
 	ADD R14, R14, interrupt_frame_size	// restore the old stack pointer
 	PUTS R13, 3		// restore PSW
     RTI
-risc5_ivt:
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
-	.WORD 	default_isr
 default_isr:		// infinite loop, never returns
 	B default_isr
+
 start:
 	MOV	R14,stack	// set sp
 	MOV	R6,_bdata	// copy data segment
