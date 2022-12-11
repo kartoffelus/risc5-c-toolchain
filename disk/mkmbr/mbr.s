@@ -1,65 +1,56 @@
 //
-// mbr.s -- master boot record (just a fake one)
+// mbr.s -- master boot record
 //
 
-	.SET	iobase,0xFFFFC0		// I/O base address
-	.SET	termdata,iobase+4*2	// terminal data
-	.SET	termctrl,iobase+4*3	// terminal ctrl
-	.SET	tos,0x010000		// top of stack
+	.SET	startSector,2		// disk location of system loader
+	.SET	numSectors,254		// size of system loader
+	.SET	loadAddr,0xE00000	// where to load the system loader
+
+	.SET	serialOut,0xFFE01C	// serial output
+	.SET	readSector,0xFFE020	// read sector from SD card
 
 	// get some addresses listed in the load map
-	.GLOBAL	start
-	.GLOBAL	main
-	.GLOBAL	out
+	.GLOBAL	mbr
+	.GLOBAL	load
 	.GLOBAL	msg
 
-	// minimal execution environment
-start:
-	MOV	R14,tos			// setup stack
-	C	main			// do useful work
-start1:
-	B	start1			// halt by looping
-
-	// main program
-main:
-	SUB	R14,R14,8		// create stack frame
+	// the master boot loads the system loader
+	// from a fixed disk position into high memory
+mbr:
+	SUB	R14,R14,12		// create stack frame
 	STW	R15,R14,0		// save return address
 	STW	R8,R14,4		// save register variable
+	STW	R9,R14,8		// and another one
 	MOV	R8,msg			// pointer to string
-loop:
+strloop:
 	LDB	R1,R8,0			// get char
-	BEQ	stop			// null - finished
-	C	out			// output char
+	BEQ	load			// null - finished, go loading
+	C	serialOut		// output char
 	ADD	R8,R8,1			// bump pointer
-	B	loop			// next char
-stop:
+	B	strloop			// next char
+load:
+	MOV	R8,startSector		// first sector to load
+	MOV	R9,loadAddr		// gets loaded here
+ldloop:
+	MOV	R1,R8			// first argument: sector
+	MOV	R2,R9			// second argument: address
+	C	readSector		// load a single sector
+	ADD	R9,R9,512		// bump load address
+	ADD	R8,R8,1			// and sector number
+	SUB	R4,R8,startSector+numSectors
+	BNE	ldloop			// not yet finished?
 	LDW	R15,R14,0		// restore return address
 	LDW	R8,R14,4		// restore register variable
-	ADD	R14,R14,8		// release stack frame
-	B	R15			// return
+	LDW	R9,R14,8		// and another one
+	ADD	R14,R14,12		// release stack frame
+	B	loadAddr		// jump to loaded program
 
-	// output a character to the terminal
-out:
-	MOV	R4,termctrl		// terminal control
-out1:
-	LDW	R5,R4,0			// get status
-	AND	R5,R5,2			// xmtr ready?
-	BEQ	out1			// no - wait
-	MOV	R4,termdata		// terminal data
-	STW	R1,R4,0			// send char
-	B	R15			// return
-
-	// this dummy MBR only sends a message
+	// say what is going on
 msg:
 	.BYTE	0x0D, 0x0A
-	.BYTE	"This is a dummy MBR which "
-	.BYTE	"cannot load any program."
+	.BYTE	"MBR executing..."
 	.BYTE	0x0D, 0x0A
-	.BYTE	"Please replace with a real "
-	.BYTE	"MBR and an OS, then try again!"
-	.BYTE	0x0D, 0x0A
-	.BYTE	0x0D, 0x0A, 0
 
-	.SPACE	0x122
+	.SPACE	0x172			// adjust for sizeof(mbr) = 512
 
-	.BYTE	0x55,0xAA
+	.BYTE	0x55,0xAA		// boot record signature
