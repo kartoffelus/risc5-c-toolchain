@@ -34,7 +34,8 @@
 #define MSEC_PER_CHAR	(10 * (1000.0 / BAUD_RATE))
 #define INST_PER_CHAR	((int)(INST_PER_MSEC * MSEC_PER_CHAR + 0.5))
 
-#define IRQ_HPT		15			/* high prec timer IRQ */
+#define IRQ_HPT_0	15			/* high prec timer 0 IRQ */
+#define IRQ_HPT_1	14			/* high prec timer 1 IRQ */
 #define IRQ_TIMER	11			/* millisec timer IRQ */
 #define IRQ_RS232_RCV	7			/* RS232 receive IRQ */
 #define IRQ_RS232_XMT	6			/* RS232 transmit IRQ */
@@ -902,7 +903,7 @@ void writeIO(int dev, Word data) {
 /**************************************************************/
 
 /*
- * Extended I/O devices 0, 1: high precision timer
+ * Extended I/O devices 0, 1: high precision timer 0
  */
 
 
@@ -912,26 +913,26 @@ void writeIO(int dev, Word data) {
 #define HPT_SCALING		100
 
 
-static Word HPTcounter;
-static Word HPTdivisor;
-static Word HPTstatus;
-static Word HPTcontrol;
+static Word HPTcounter_0;
+static Word HPTdivisor_0;
+static Word HPTstatus_0;
+static Word HPTcontrol_0;
 
 
-static void tickHPTcounter(int clockCycles) {
-  if (HPTcounter <= clockCycles) {
-    HPTcounter += HPTdivisor - clockCycles;
-    HPTstatus |= HPT_EXPIRED;
-    if (HPTcontrol & HPT_IEN) {
-      cpuSetInterrupt(IRQ_HPT);
+static void tickHPTcounter_0(int clockCycles) {
+  if (HPTcounter_0 <= clockCycles) {
+    HPTcounter_0 += HPTdivisor_0 - clockCycles;
+    HPTstatus_0 |= HPT_EXPIRED;
+    if (HPTcontrol_0 & HPT_IEN) {
+      cpuSetInterrupt(IRQ_HPT_0);
     }
   } else {
-    HPTcounter -= clockCycles;
+    HPTcounter_0 -= clockCycles;
   }
 }
 
 
-void tickHPT(void) {
+void tickHPT_0(void) {
   static int accumulator = 0;
   int clockCycles;
 
@@ -946,7 +947,7 @@ void tickHPT(void) {
     clockCycles++;
   }
   if (clockCycles > 0) {
-    tickHPTcounter(clockCycles);
+    tickHPTcounter_0(clockCycles);
   }
 }
 
@@ -956,8 +957,8 @@ void tickHPT(void) {
  *     HPT counter
  *     { data[31:0] }
  */
-Word readHPTdata(void) {
-  return HPTcounter;
+Word readHPTdata_0(void) {
+  return HPTcounter_0;
 }
 
 
@@ -966,10 +967,10 @@ Word readHPTdata(void) {
  *     HPT divisor
  *     { data[31:0] }
  */
-void writeHPTdata(Word data) {
-  HPTdivisor = data;
+void writeHPTdata_0(Word data) {
+  HPTdivisor_0 = data;
   /* must also reset the counter */
-  HPTcounter = data;
+  HPTcounter_0 = data;
 }
 
 
@@ -978,13 +979,13 @@ void writeHPTdata(Word data) {
  *     HPT status
  *     { 31'bx, expired }
  */
-Word readHPTctrl(void) {
+Word readHPTctrl_0(void) {
   Word data;
 
-  data = HPTstatus;
-  HPTstatus &= ~HPT_EXPIRED;
-  if (HPTcontrol & HPT_IEN) {
-    cpuResetInterrupt(IRQ_HPT);
+  data = HPTstatus_0;
+  HPTstatus_0 &= ~HPT_EXPIRED;
+  if (HPTcontrol_0 & HPT_IEN) {
+    cpuResetInterrupt(IRQ_HPT_0);
   }
   return data;
 }
@@ -995,26 +996,26 @@ Word readHPTctrl(void) {
  *     HPT ctrl
  *     { 31'bx, ien }
  */
-void writeHPTctrl(Word data) {
+void writeHPTctrl_0(Word data) {
   if (data & HPT_IEN) {
-    HPTcontrol |= HPT_IEN;
+    HPTcontrol_0 |= HPT_IEN;
   } else {
-    HPTcontrol &= ~HPT_IEN;
+    HPTcontrol_0 &= ~HPT_IEN;
   }
-  if ((HPTcontrol & HPT_IEN) &&
-      (HPTstatus & HPT_EXPIRED)) {
-    cpuSetInterrupt(IRQ_HPT);
+  if ((HPTcontrol_0 & HPT_IEN) &&
+      (HPTstatus_0 & HPT_EXPIRED)) {
+    cpuSetInterrupt(IRQ_HPT_0);
   } else {
-    cpuResetInterrupt(IRQ_HPT);
+    cpuResetInterrupt(IRQ_HPT_0);
   }
 }
 
 
-void initHPT(void) {
-  HPTdivisor = 0xFFFFFFFF;
-  HPTcounter = 0xFFFFFFFF;
-  HPTstatus = 0;
-  HPTcontrol = 0;
+void initHPT_0(void) {
+  HPTdivisor_0 = 0xFFFFFFFF;
+  HPTcounter_0 = 0xFFFFFFFF;
+  HPTstatus_0 = 0;
+  HPTcontrol_0 = 0;
 }
 
 
@@ -1446,6 +1447,119 @@ void initBTNSWT(Word initialBtnSwt) {
 /**************************************************************/
 
 /*
+ * Extended I/O devices 6, 7: high precision timer 1
+ */
+
+
+static Word HPTcounter_1;
+static Word HPTdivisor_1;
+static Word HPTstatus_1;
+static Word HPTcontrol_1;
+
+
+static void tickHPTcounter_1(int clockCycles) {
+  if (HPTcounter_1 <= clockCycles) {
+    HPTcounter_1 += HPTdivisor_1 - clockCycles;
+    HPTstatus_1 |= HPT_EXPIRED;
+    if (HPTcontrol_1 & HPT_IEN) {
+      cpuSetInterrupt(IRQ_HPT_1);
+    }
+  } else {
+    HPTcounter_1 -= clockCycles;
+  }
+}
+
+
+void tickHPT_1(void) {
+  static int accumulator = 0;
+  int clockCycles;
+
+  /*
+   * approximate possibly non-integer CC_PER_INST by the
+   * integer ratio (CC_PER_INST * HPT_SCALING) / HPT_SCALING
+   */
+  accumulator += (int) (CC_PER_INST * HPT_SCALING + 0.5);
+  clockCycles = 0;
+  while (accumulator >= HPT_SCALING) {
+    accumulator -= HPT_SCALING;
+    clockCycles++;
+  }
+  if (clockCycles > 0) {
+    tickHPTcounter_1(clockCycles);
+  }
+}
+
+
+/*
+ * read extended device 0:
+ *     HPT counter
+ *     { data[31:0] }
+ */
+Word readHPTdata_1(void) {
+  return HPTcounter_1;
+}
+
+
+/*
+ * write extended device 0:
+ *     HPT divisor
+ *     { data[31:0] }
+ */
+void writeHPTdata_1(Word data) {
+  HPTdivisor_1 = data;
+  /* must also reset the counter */
+  HPTcounter_1 = data;
+}
+
+
+/*
+ * read extended device 1:
+ *     HPT status
+ *     { 31'bx, expired }
+ */
+Word readHPTctrl_1(void) {
+  Word data;
+
+  data = HPTstatus_1;
+  HPTstatus_1 &= ~HPT_EXPIRED;
+  if (HPTcontrol_1 & HPT_IEN) {
+    cpuResetInterrupt(IRQ_HPT_1);
+  }
+  return data;
+}
+
+
+/*
+ * write extended device 1:
+ *     HPT ctrl
+ *     { 31'bx, ien }
+ */
+void writeHPTctrl_1(Word data) {
+  if (data & HPT_IEN) {
+    HPTcontrol_1 |= HPT_IEN;
+  } else {
+    HPTcontrol_1 &= ~HPT_IEN;
+  }
+  if ((HPTcontrol_1 & HPT_IEN) &&
+      (HPTstatus_1 & HPT_EXPIRED)) {
+    cpuSetInterrupt(IRQ_HPT_1);
+  } else {
+    cpuResetInterrupt(IRQ_HPT_1);
+  }
+}
+
+
+void initHPT_1(void) {
+  HPTdivisor_1 = 0xFFFFFFFF;
+  HPTcounter_1 = 0xFFFFFFFF;
+  HPTstatus_1 = 0;
+  HPTcontrol_1 = 0;
+}
+
+
+/**************************************************************/
+
+/*
  * Extended I/O : address of device n = XIO_BASE + 4 * n
  *                this can be expressed in decimal as -4 * (32 - n)
  */
@@ -1456,10 +1570,10 @@ Word readXIO(int dev) {
 
   switch (dev) {
     case 0:
-      data = readHPTdata();
+      data = readHPTdata_0();
       break;
     case 1:
-      data = readHPTctrl();
+      data = readHPTctrl_0();
       break;
     case 2:
       data = readLCDdata();
@@ -1469,6 +1583,12 @@ Word readXIO(int dev) {
       break;
     case 4:
       data = readBTNSWT();
+      break;
+    case 6:
+      data = readHPTdata_1();
+      break;
+    case 7:
+      data = readHPTctrl_1();
       break;
     default:
       error("reading from unknown extended I/O device %d", dev);
@@ -1482,10 +1602,10 @@ Word readXIO(int dev) {
 void writeXIO(int dev, Word data) {
   switch (dev) {
     case 0:
-      writeHPTdata(data);
+      writeHPTdata_0(data);
       break;
     case 1:
-      writeHPTctrl(data);
+      writeHPTctrl_0(data);
       break;
     case 2:
       writeLCDdata(data);
@@ -1495,6 +1615,12 @@ void writeXIO(int dev, Word data) {
       break;
     case 4:
       writeBTNSWT(data);
+      break;
+    case 6:
+      writeHPTdata_1(data);
+      break;
+    case 7:
+      writeHPTctrl_1(data);
       break;
     default:
       error("writing to unknown extended I/O device %d, data = 0x%08X",
@@ -2278,7 +2404,8 @@ void cpuResetBreak(void) {
 void cpuStep(void) {
   tickTimer();
   tickSerial();
-  tickHPT();
+  tickHPT_0();
+  tickHPT_1();
   execNextInstruction();
   handleInterrupts();
 }
@@ -2289,7 +2416,8 @@ void cpuRun(void) {
   while (run) {
     tickTimer();
     tickSerial();
-    tickHPT();
+    tickHPT_0();
+    tickHPT_1();
     execNextInstruction();
     handleInterrupts();
     if (breakSet && pc == breakAddr) {
@@ -3446,7 +3574,8 @@ int main(int argc, char *argv[]) {
   initSPI(diskName);
   initMouseKeybd();
   initGPIO();
-  initHPT();
+  initHPT_0();
+  initHPT_1();
   initLCD();
   graphInit();
   promInit(promName);
