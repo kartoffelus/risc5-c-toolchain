@@ -1,6 +1,6 @@
 
-High Precision Timer (HPTMR)
-============================
+High Precision Timer 0 (HPTMR)
+==============================
 
 IRQ:  15
 base: 0xFFFF80
@@ -71,6 +71,16 @@ reset all press/release bits and interrupts
 format: { press_ien[3:0], release_ien[3:0], 24'bx }
 
 Note: I/O device "SWTLED" remains functional also
+
+
+High Precision Timer 1 (HPTMR)
+==============================
+
+IRQ:  14
+base: 0xFFFF98
+
+Other than a different IRQ and base address, this timer
+is an exact duplicate of High Precision Timer 0.
 
 
 Millisecond Timer (MSTMR)
