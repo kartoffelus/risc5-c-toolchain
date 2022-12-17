@@ -35,12 +35,12 @@ led_on:
 
 main:
 	MOV	R0,-128		// set divisor
-	MOV	R1,500000	// for 100 Hz
+	MOV	R1,100000-200	// for 501 Hz
 	STW	R1,R0,0
 	MOV	R1,1		// enable device interrupt
 	STW	R1,R0,4
 	MOV	R0,-104		// set divisor
-	MOV	R1,500000-4950	// for 101 Hz
+	MOV	R1,100000	// for 500 Hz
 	STW	R1,R0,0
 	MOV	R1,1		// enable device interrupt
 	STW	R1,R0,4
