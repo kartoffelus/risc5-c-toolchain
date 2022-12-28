@@ -767,7 +767,7 @@ void initMouseKeybd(void) {
  * read device 8:
  *     ignore, return 0
  */
-Word readGPIO_0(void) {
+Word readGPIOdata(void) {
   return 0;
 }
 
@@ -776,7 +776,7 @@ Word readGPIO_0(void) {
  * write device 8:
  *     ignore
  */
-void writeGPIO_0(Word data) {
+void writeGPIOdata(Word data) {
 }
 
 
@@ -784,7 +784,7 @@ void writeGPIO_0(Word data) {
  * read device 9:
  *     ignore, return 0
  */
-Word readGPIO_1(void) {
+Word readGPIOdir(void) {
   return 0;
 }
 
@@ -793,7 +793,7 @@ Word readGPIO_1(void) {
  * write device 9:
  *     ignore
  */
-void writeGPIO_1(Word data) {
+void writeGPIOdir(Word data) {
 }
 
 
@@ -865,10 +865,10 @@ Word readIO(int dev) {
       data = readKeybd();
       break;
     case 8:
-      data = readGPIO_0();
+      data = readGPIOdata();
       break;
     case 9:
-      data = readGPIO_1();
+      data = readGPIOdir();
       break;
     case 15:
       data = readShutdown();
@@ -909,10 +909,10 @@ void writeIO(int dev, Word data) {
       writeKeybd(data);
       break;
     case 8:
-      writeGPIO_0(data);
+      writeGPIOdata(data);
       break;
     case 9:
-      writeGPIO_1(data);
+      writeGPIOdir(data);
       break;
     case 15:
       writeShutdown(data);
@@ -1516,7 +1516,7 @@ void tickHPT_1(void) {
 
 
 /*
- * read extended device 0:
+ * read extended device 6:
  *     HPT counter
  *     { data[31:0] }
  */
@@ -1526,7 +1526,7 @@ Word readHPTdata_1(void) {
 
 
 /*
- * write extended device 0:
+ * write extended device 6:
  *     HPT divisor
  *     { data[31:0] }
  */
@@ -1538,7 +1538,7 @@ void writeHPTdata_1(Word data) {
 
 
 /*
- * read extended device 1:
+ * read extended device 7:
  *     HPT status
  *     { 31'bx, expired }
  */
@@ -1555,7 +1555,7 @@ Word readHPTctrl_1(void) {
 
 
 /*
- * write extended device 1:
+ * write extended device 7:
  *     HPT ctrl
  *     { 31'bx, ien }
  */
@@ -1640,7 +1640,7 @@ void tickRS232_1(void) {
 
 
 /*
- * read device 2:
+ * read extended device 8:
  *     receiver data
  *     { 24'bx, rcv_data[7:0] }
  */
@@ -1654,7 +1654,7 @@ Word readRS232data_1(void) {
 
 
 /*
- * write device 2:
+ * write extended device 8:
  *     transmitter data
  *     { 24'bx, xmt_data[7:0] }
  */
@@ -1668,7 +1668,7 @@ void writeRS232data_1(Word data) {
 
 
 /*
- * read device 3:
+ * read extended device 9:
  *     status
  *     { 29'bx, xmt_empty, xmt_rdy, rcv_rdy }
  */
@@ -1678,7 +1678,7 @@ Word readRS232ctrl_1(void) {
 
 
 /*
- * write device 3:
+ * write extended device 9:
  *     control
  *     { set_baud, baud[2:0], 25'bx,
  *       xmt_empty_ien, xmt_rdy_ien, rcv_rdy_ien }
