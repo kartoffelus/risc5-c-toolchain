@@ -810,9 +810,11 @@ void initGPIO(void) {
 
 /*
  * read device 15:
- *     always return 0
+ *     it is an error to read from the shutdown device
  */
 Word readShutdown(void) {
+  error("read from shutdown device");
+  /* never reached */
   return 0;
 }
 
