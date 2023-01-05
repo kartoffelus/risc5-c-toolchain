@@ -1,25 +1,42 @@
 #
-# Makefile for standalone library
+# Makefile for C standard library
 #
 
-BUILD = ../build
+BUILD = ../../build
 
-DIRS = include libc scripts startup
+LIBC_DIRS = dummy string math
+LIBM_DIRS = math
+DIRS = $(LIBC_DIRS) $(LIBM_DIRS)
 
-.PHONY:		all install clean
+LIBC_OBJS = $(wildcard $(patsubst %,%/*.o,$(LIBC_DIRS)))
+LIBM_OBJS = $(wildcard $(patsubst %,%/*.o,$(LIBM_DIRS)))
 
-all:
+LIBC = libc.a
+LIBM = libm.a
+
+.PHONY:		all install objects clean
+
+all:		$(LIBC) $(LIBM)
+
+install:	$(LIBC) $(LIBM)
+		mkdir -p $(BUILD)/lib
+		cp $(LIBC) $(BUILD)/lib
+		cp $(LIBM) $(BUILD)/lib
+
+$(LIBC):		objects
+		$(BUILD)/bin/mklib -cv $(LIBC) $(LIBC_OBJS)
+
+$(LIBM):		objects
+		$(BUILD)/bin/mklib -cv $(LIBM) $(LIBM_OBJS)
+
+objects:
 		for i in $(DIRS) ; do \
 		  $(MAKE) -C $$i all ; \
-		done
-
-install:
-		for i in $(DIRS) ; do \
-		  $(MAKE) -C $$i install ; \
 		done
 
 clean:
 		for i in $(DIRS) ; do \
 		  $(MAKE) -C $$i clean ; \
 		done
-		rm -f *~
+		rm -f *~ $(LIBC)
+		rm -f *~ $(LIBM)
